@@ -26,14 +26,14 @@ export type DataContact = {
 export const DATA = {
   name: "Qingyang Liu",
   initials: "QY",
-  url: "https://dillion.io",
+  url: "https://cyanisok.cn",
   location: "Zhejiang, China",
   // locationLink: "https://www.google.com/maps/place/sanfrancisco",
   description:
     "I am a software engineer with a passion for building things and helping people. I love building things and helping people. Very active on Twitter.",
   summary:
     "At the end of 2022, I quit my job as a software engineer to go fulltime into building and scaling my own SaaS businesses. In the past, [I pursued a double degree in computer science and business](/#education), [interned at big tech companies in Silicon Valley](https://www.youtube.com/watch?v=d-LJ2e5qKdE), and [competed in over 21 hackathons for fun](/#hackathons). I also had the pleasure of being a part of the first ever in-person cohort of buildspace called [buildspace sf1](https://buildspace.so/sf1).",
-  avatarUrl: "/my_bear.jpg",
+  avatarUrl: "/my_bear_bright.png",
   skills: [
     { name: "React", icon: ReactLight },
     { name: "Next.js", icon: NextjsIconDark },
@@ -93,7 +93,15 @@ export const DATA = {
   //   },
   // },
 
-  work: [] as { company: string; role: string; location: string; href: string; start: string; end: string; highlights: string[] }[],
+  work: [] as {
+    company: string;
+    href?: string;
+    logoUrl: string;
+    title: string;
+    start: string;
+    end?: string;
+    description: string;
+  }[],
   education: [
     {
       school: "University of Nottingham Ningbo China",
@@ -230,5 +238,7 @@ export const DATA = {
   ],
   achievements: [],
   certificates: [],
-  contact: undefined as unknown as DataContact,
+  contact: {
+    social: {},
+  } satisfies DataContact,
 };

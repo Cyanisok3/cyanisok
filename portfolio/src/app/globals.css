@@ -2,7 +2,18 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Local font for specific sections */
+@font-face {
+  font-family: "AFL";
+  src: url("/fonts/RN.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-afl {
+  font-family: "AFL", sans-serif;
+}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

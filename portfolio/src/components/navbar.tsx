@@ -7,9 +7,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DATA } from "@/data/resume";
+import { DATA, type DataContact } from "@/data/resume";
 
 export default function Navbar() {
+  const socialLinks = Object.entries(DATA.contact?.social ?? {}) as Array<
+    [string, DataContact["social"][string]]
+  >;
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30">
       <Dock className="z-50 pointer-events-auto relative h-14 p-2 w-fit mx-auto flex gap-2 border bg-card/90 backdrop-blur-3xl shadow-[0_0_10px_3px] shadow-primary/5">
@@ -39,13 +43,13 @@ export default function Navbar() {
             </Tooltip>
           );
         })}
-        {DATA.contact?.social && Object.keys(DATA.contact.social).length > 0 && (
+        {socialLinks.length > 0 && (
           <>
             <Separator
               orientation="vertical"
               className="h-2/3 m-auto w-px bg-border"
             />
-            {Object.entries(DATA.contact.social)
+            {socialLinks
               .filter(([_, social]) => social.navbar)
               .map(([name, social], index) => {
                 const isExternal = social.url.startsWith("http");

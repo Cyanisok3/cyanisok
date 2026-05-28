@@ -1,66 +1,113 @@
 /* eslint-disable @next/next/no-img-element */
 import BlurFade from "@/components/magicui/blur-fade";
 import BlurFadeText from "@/components/magicui/blur-fade-text";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DATA } from "@/data/resume";
+import { DATA, type DataContact } from "@/data/resume";
 import Link from "next/link";
 import Markdown from "react-markdown";
 import ContactSection from "@/components/section/contact-section";
 import ProjectsSection from "@/components/section/projects-section";
-import WorkSection from "@/components/section/work-section";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 
 const BLUR_FADE_DELAY = 0.04;
 
 export default function Page() {
+  const socialLinks = Object.entries(DATA.contact?.social ?? {}) as Array<
+    [string, DataContact["social"][string]]
+  >;
+
   return (
-    <main className="min-h-dvh flex flex-col gap-14 relative">
+    <>
+      {/* Fixed background image with overlay */}
+      <div
+        className="fixed inset-0 -z-10"
+        style={{
+          backgroundImage: "url('/background.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="fixed inset-0 -z-10 bg-background dark:bg-background/80" />
+
+      <main className="min-h-dvh flex flex-col gap-14 relative">
       <section id="hero">
-        <div className="mx-auto w-full max-w-2xl space-y-8">
-          <div className="gap-2 gap-y-6 flex flex-col md:flex-row justify-between">
-            <div className="gap-2 flex flex-col order-2 md:order-1">
+        <div className="mx-auto w-full max-w-2xl">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
+            {/* Text Content - Left aligned */}
+            <div className="flex flex-col gap-4 flex-1">
+              {/* Name */}
               <BlurFadeText
                 delay={BLUR_FADE_DELAY}
-                className="text-3xl font-semibold tracking-tighter sm:text-4xl lg:text-5xl"
+                className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight font-afl"
                 yOffset={8}
-                text={`Hi, I'm ${DATA.name.split(" ")[0]}`}
+                text={DATA.name}
               />
+
+              {/* Location */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="size-4" />
+                <span className="text-base md:text-lg">{DATA.location}</span>
+              </div>
+
+              {/* Description */}
               <BlurFadeText
-                className="text-muted-foreground max-w-[600px] md:text-lg lg:text-xl"
+                className="text-muted-foreground md:text-lg lg:text-xl font-afl"
                 delay={BLUR_FADE_DELAY}
                 text={DATA.description}
               />
+
+              {/* Social Links */}
+              {socialLinks.length > 0 && (
+                <div className="flex items-center gap-3 pt-2">
+                  {socialLinks.map(([name, social], index) => {
+                    const Icon = social.icon;
+                    const isExternal = social.url.startsWith("http");
+
+                    return (
+                      <BlurFade
+                        delay={BLUR_FADE_DELAY * (2 + index * 0.5)}
+                        key={name}
+                      >
+                        <Link
+                          href={social.url}
+                          target={isExternal ? "_blank" : undefined}
+                          rel={isExternal ? "noopener noreferrer" : undefined}
+                          className="size-10 flex items-center justify-center rounded-full border bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <Icon className="size-5" />
+                          <span className="sr-only">{name}</span>
+                        </Link>
+                      </BlurFade>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <BlurFade delay={BLUR_FADE_DELAY} className="order-1 md:order-2">
-              <Avatar className="size-24 md:size-32 border rounded-full shadow-lg ring-4 ring-muted">
-                <AvatarImage alt={DATA.name} src={DATA.avatarUrl} />
-                <AvatarFallback>{DATA.initials}</AvatarFallback>
-              </Avatar>
-            </BlurFade>
+
+            {/* Image - Right side */}
+            <div className="flex-shrink-0">
+              <BlurFade delay={BLUR_FADE_DELAY}>
+                <img
+                  src="/Polaroid.png"
+                  alt={DATA.name}
+                  className="w-52 md:w-64 h-auto rounded-lg shadow-xl"
+                />
+              </BlurFade>
+            </div>
           </div>
         </div>
       </section>
       <section id="about">
         <div className="flex min-h-0 flex-col gap-y-4">
-          <BlurFade delay={BLUR_FADE_DELAY * 3}>
+          <BlurFade delay={BLUR_FADE_DELAY * 4}>
             <h2 className="text-xl font-bold">About</h2>
           </BlurFade>
-          <BlurFade delay={BLUR_FADE_DELAY * 4}>
-            <div className="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert">
+          <BlurFade delay={BLUR_FADE_DELAY * 4.5}>
+            <div className="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert font-afl">
               <Markdown>
                 {DATA.summary}
               </Markdown>
             </div>
-          </BlurFade>
-        </div>
-      </section>
-      <section id="work">
-        <div className="flex min-h-0 flex-col gap-y-6">
-          <BlurFade delay={BLUR_FADE_DELAY * 5}>
-            <h2 className="text-xl font-bold">Work Experience</h2>
-          </BlurFade>
-          <BlurFade delay={BLUR_FADE_DELAY * 6}>
-            <WorkSection />
           </BlurFade>
         </div>
       </section>
@@ -140,5 +187,6 @@ export default function Page() {
         </BlurFade>
       </section>
     </main>
+    </>
   );
 }
