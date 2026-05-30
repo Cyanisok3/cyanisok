@@ -3,14 +3,17 @@ import { HomeIcon, NotebookIcon } from "lucide-react";
 import { ReactLight } from "@/components/ui/svgs/reactLight";
 import { NextjsIconDark } from "@/components/ui/svgs/nextjsIconDark";
 import { Typescript } from "@/components/ui/svgs/typescript";
-import { Nodejs } from "@/components/ui/svgs/nodejs";
 import { Python } from "@/components/ui/svgs/python";
-import { Golang } from "@/components/ui/svgs/golang";
-import { Postgresql } from "@/components/ui/svgs/postgresql";
 import { Docker } from "@/components/ui/svgs/docker";
-import { Kubernetes } from "@/components/ui/svgs/kubernetes";
 import { Java } from "@/components/ui/svgs/java";
-import { Csharp } from "@/components/ui/svgs/csharp";
+import { Cplusplus } from "@/components/ui/svgs/cplusplus";
+import { Sql } from "@/components/ui/svgs/sql";
+import { Hugo } from "@/components/ui/svgs/hugo";
+import { TailwindCss } from "@/components/ui/svgs/tailwindCss";
+import { Html5 } from "@/components/ui/svgs/html5";
+import { Css3 } from "@/components/ui/svgs/css3";
+import { Git } from "@/components/ui/svgs/git";
+import { FinalCutProX } from "@/components/ui/svgs/finalCutProX";
 import { ChatBubbleIcon } from "@radix-ui/react-icons";
 
 export type DataContact = {
@@ -24,28 +27,31 @@ export type DataContact = {
 };
 
 export const DATA = {
-  name: "Qingyang Liu",
-  initials: "QY",
+  name: "@Cyanisok",
+  initials: "Cyan",
   url: "https://cyanisok.cn",
   location: "Zhejiang, China",
   // locationLink: "https://www.google.com/maps/place/sanfrancisco",
   description:
-    "I am a software engineer with a passion for building things and helping people. I love building things and helping people. Very active on Twitter.",
+    "A software developer with a passion for creating beautiful and functional web applications.",
   summary:
-    "At the end of 2022, I quit my job as a software engineer to go fulltime into building and scaling my own SaaS businesses. In the past, [I pursued a double degree in computer science and business](/#education), [interned at big tech companies in Silicon Valley](https://www.youtube.com/watch?v=d-LJ2e5qKdE), and [competed in over 21 hackathons for fun](/#hackathons). I also had the pleasure of being a part of the first ever in-person cohort of buildspace called [buildspace sf1](https://buildspace.so/sf1).",
+    "For me, programming is my profession, while photography, sketching, and short film editing are the passions that define my lifestyle. I enjoy freely switching between the rational world of technology and the emotional realm of artistic creation.",
   avatarUrl: "/my_bear_bright.png",
   skills: [
+    { name: "C++", icon: Cplusplus },
+    { name: "Java", icon: Java },
+    { name: "Python", icon: Python },
+    { name: "Typescript", icon: Typescript },
+    { name: "SQL", icon: Sql },
     { name: "React", icon: ReactLight },
     { name: "Next.js", icon: NextjsIconDark },
-    { name: "Typescript", icon: Typescript },
-    { name: "Node.js", icon: Nodejs },
-    { name: "Python", icon: Python },
-    { name: "Go", icon: Golang },
-    { name: "Postgres", icon: Postgresql },
+    { name: "Hugo", icon: Hugo },
+    { name: "Tailwind CSS", icon: TailwindCss },
+    { name: "HTML5", icon: Html5 },
+    { name: "CSS3", icon: Css3 },
+    { name: "Git", icon: Git },
     { name: "Docker", icon: Docker },
-    { name: "Kubernetes", icon: Kubernetes },
-    { name: "Java", icon: Java },
-    { name: "C++", icon: Csharp },
+    { name: "Final Cut Pro X", icon: FinalCutProX },
   ],
   navbar: [
     { href: "/", icon: HomeIcon, label: "Home" },
@@ -140,100 +146,6 @@ export const DATA = {
       image: "",
       video:
         "https://pub-83c5db439b40468498f97946200806f7.r2.dev/chat-collect.mp4",
-    },
-    {
-      title: "Magic UI",
-      href: "https://magicui.design",
-      dates: "June 2023 - Present",
-      active: true,
-      description:
-        "Designed, developed and sold animated UI components for developers.",
-      technologies: [
-        "Next.js",
-        "Typescript",
-        "PostgreSQL",
-        "Prisma",
-        "TailwindCSS",
-        "Stripe",
-        "Shadcn UI",
-        "Magic UI",
-      ],
-      links: [
-        {
-          type: "Website",
-          href: "https://magicui.design",
-          icon: <Icons.globe className="size-3" />,
-        },
-        {
-          type: "Source",
-          href: "https://github.com/magicuidesign/magicui",
-          icon: <Icons.github className="size-3" />,
-        },
-      ],
-      image: "",
-      video: "https://cdn.magicui.design/bento-grid.mp4",
-    },
-    {
-      title: "llm.report",
-      href: "https://llm.report",
-      dates: "April 2023 - September 2023",
-      active: true,
-      description:
-        "Developed an open-source logging and analytics platform for OpenAI: Log your ChatGPT API requests, analyze costs, and improve your prompts.",
-      technologies: [
-        "Next.js",
-        "Typescript",
-        "PostgreSQL",
-        "Prisma",
-        "TailwindCSS",
-        "Shadcn UI",
-        "Magic UI",
-        "Stripe",
-        "Cloudflare Workers",
-      ],
-      links: [
-        {
-          type: "Website",
-          href: "https://llm.report",
-          icon: <Icons.globe className="size-3" />,
-        },
-        {
-          type: "Source",
-          href: "https://github.com/dillionverma/llm.report",
-          icon: <Icons.github className="size-3" />,
-        },
-      ],
-      image: "",
-      video: "https://cdn.llm.report/openai-demo.mp4",
-    },
-    {
-      title: "Automatic Chat",
-      href: "https://automatic.chat",
-      dates: "April 2023 - March 2024",
-      active: true,
-      description:
-        "Developed an AI Customer Support Chatbot which automatically responds to customer support tickets using the latest GPT models.",
-      technologies: [
-        "Next.js",
-        "Typescript",
-        "PostgreSQL",
-        "Prisma",
-        "TailwindCSS",
-        "Shadcn UI",
-        "Magic UI",
-        "Stripe",
-        "Cloudflare Workers",
-      ],
-      links: [
-        {
-          type: "Website",
-          href: "https://automatic.chat",
-          icon: <Icons.globe className="size-3" />,
-        },
-      ],
-      image: "",
-      video:
-        "https://pub-83c5db439b40468498f97946200806f7.r2.dev/automatic-chat.mp4",
     },
   ],
   achievements: [],

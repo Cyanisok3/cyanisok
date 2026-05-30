@@ -86,6 +86,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --site-background-image: url("/background_bright.png");
+  --site-background-overlay: oklch(1 0 0 / 35%);
 }
 
 .dark {
@@ -120,6 +122,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --site-background-image: url("/background_dark.png");
+  --site-background-overlay: oklch(0.18 0 0 / 60%);
 }
 
 @layer base {
@@ -127,6 +131,7 @@
     @apply border-border;
   }
 
+  html,
   body {
     @apply bg-background text-foreground;
   }
@@ -244,4 +249,25 @@
     @apply border-b-0;
   }
 
+}
+
+@layer components {
+  .site-background-cover,
+  .site-background-artwork {
+    background-image: var(--site-background-image);
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .site-background-cover {
+    background-size: cover;
+  }
+
+  .site-background-artwork {
+    background-size: 100% auto;
+  }
+
+  .site-background-overlay {
+    background: var(--site-background-overlay);
+  }
 }

@@ -13,12 +13,6 @@ const sans = localFont({
   display: "swap",
 });
 
-const mono = localFont({
-  src: "../../public/fonts/SR.woff2",
-  variable: "--font-mono",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL(DATA.url),
   title: {
@@ -61,16 +55,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="bg-background">
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased relative",
-          sans.variable,
-          mono.variable
+          sans.variable
         )}
       >
         <ThemeProvider attribute="class" defaultTheme="light">
           <TooltipProvider delayDuration={0}>
+            <div className="site-background-cover fixed inset-0 z-0 pointer-events-none" />
+            <div className="site-background-artwork fixed inset-0 z-0 pointer-events-none" />
+            <div className="site-background-overlay fixed inset-0 z-0 pointer-events-none" />
             <div className="relative z-10 max-w-2xl mx-auto py-12 pb-24 sm:py-24 px-6">
               {children}
             </div>

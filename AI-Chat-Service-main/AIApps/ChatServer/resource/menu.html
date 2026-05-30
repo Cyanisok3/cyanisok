@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欢迎来到AI助手界面</title>
+    <style>
+        /* ==================== 全局样式 ==================== */
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background-color: #1e1e2f;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* ==================== 加载动画 ==================== */
+        #loading-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        #loading-title {
+            font-size: 2em;
+            margin-bottom: 20px;
+            color: #00c3ff;
+            text-shadow: 0 0 5px #00c3ff, 0 0 10px #008bff;
+        }
+
+        .progress-bar {
+            width: 300px;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 10px #000;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(to right, #00c3ff, #00e1ff);
+            width: 0;
+            transition: width 1.5s ease;
+        }
+
+        #loading-text {
+            margin-top: 15px;
+            font-size: 1.2em;
+            color: #ccc;
+        }
+
+        /* ==================== 菜单页面 ==================== */
+        #menu-container {
+            display: none;
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            color: #00c3ff;
+            text-shadow: 0 0 5px #00c3ff, 0 0 10px #008bff;
+        }
+
+        .menu-option {
+            margin: 10px 0;
+            font-size: 1.5em;
+            color: #fff;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .menu-option:hover {
+            color: #00e1ff;
+            text-shadow: 0 0 5px #00e1ff;
+        }
+
+        .menu-border {
+            margin: 10px auto;
+            width: 80%;
+            height: 2px;
+            background: #00c3ff;
+            box-shadow: 0 0 5px #00c3ff;
+        }
+
+        #input-hint {
+            font-size: 1.2em;
+            margin-top: 20px;
+            color: #00e1ff;
+        }
+
+        input {
+            margin-top: 10px;
+            font-size: 1em;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: none;
+            outline: none;
+            text-align: center;
+            background-color: #333;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- ==================== 加载动画 ==================== -->
+    <div id="loading-container">
+        <div id="loading-title">AI助手</div>
+        <div class="progress-bar">
+            <div class="progress-bar-inner"></div>
+        </div>
+        <div id="loading-text">加载中...</div>
+    </div>
+
+    <!-- ==================== 菜单页面 ==================== -->
+    <div id="menu-container">
+        <h1>欢迎来到AI助手</h1>
+        <div class="menu-border"></div>
+        <div class="menu-option" id="chat-service">[1] 进入AI聊天助手</div>
+        <div class="menu-option" id="image-service">[2] 进入AI图像识别助手</div>
+        <div class="menu-option" id="logout">[0] 退出登录</div>
+    </div>
+
+    <script>
+    // =============================================================================
+    // 后端接口配置
+    // =============================================================================
+    const API_CONFIG = {
+        chatPage: '/chat',       // GET - 进入聊天页面（返回 HTML）
+        imagePage: '/upload',    // GET - 进入图像识别页面（返回 HTML）
+        logoutEndpoint: '/user/logout',  // POST - 退出登录
+        entryPage: '/entry',     // GET - 登录页
+        rootPage: '/',           // GET - 根页面
+    };
+
+    // =============================================================================
+    // 请求/响应类型定义
+    // =============================================================================
+    // POST /user/logout
+    // 请求: { userId: number, type: string, gameType: number }
+    //       type: 'manual' | 'refresh'（manual=手动退出, refresh=页面刷新）
+    // 响应: (无特定 JSON 要求)
+    //
+    // GET /chat, /upload, /entry, /
+    // 响应: HTML 页面
+    // =============================================================================
+
+    // =============================================================================
+    // DOM 元素引用
+    // =============================================================================
+    const progressBar = document.querySelector('.progress-bar-inner');
+    const loadingContainer = document.getElementById('loading-container');
+    const menuContainer = document.getElementById('menu-container');
+
+    // =============================================================================
+    // 页面加载动画
+    // =============================================================================
+    function showMenu() {
+        loadingContainer.style.display = 'none';
+        menuContainer.style.display = 'block';
+    }
+
+    // 触发进度条动画
+    void progressBar.offsetWidth;
+    progressBar.style.width = '100%';
+
+    progressBar.addEventListener('transitionend', showMenu);
+
+    // 兜底：2秒后强制显示菜单
+    setTimeout(() => {
+        if (loadingContainer.style.display !== 'none') {
+            showMenu();
+        }
+    }, 2000);
+
+    // =============================================================================
+    // 页面加载时检查登录状态
+    // =============================================================================
+    window.addEventListener('load', function () {
+        const userId = sessionStorage.getItem('userId');
+        if (!userId) {
+            window.location.href = API_CONFIG.entryPage;
+        }
+    });
+
+    // =============================================================================
+    // 业务逻辑 - 页面导航
+    // =============================================================================
+
+    // 进入 AI 聊天服务
+    document.getElementById('chat-service').addEventListener('click', () => {
+        fetch(API_CONFIG.chatPage, { method: 'GET', headers: { 'Accept': 'text/html' } })
+            .then(res => res.text())
+            .then(html => {
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(() => alert('进入AI聊天服务异常！'));
+    });
+
+    // 进入 AI 图像识别服务
+    document.getElementById('image-service').addEventListener('click', () => {
+        fetch(API_CONFIG.imagePage, { method: 'GET', headers: { 'Accept': 'text/html' } })
+            .then(res => res.text())
+            .then(html => {
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(() => alert('进入AI图像识别服务异常！'));
+    });
+
+    // =============================================================================
+    // 业务逻辑 - 退出登录
+    // =============================================================================
+    function performLogout(redirect = true) {
+        const userId = sessionStorage.getItem('userId');
+
+        // 构建请求体
+        const requestPayload = {
+            userId: userId,           // → 后端: userId（从 sessionStorage 获取）
+            type: 'manual',           // → 后端: type（手动退出）
+            gameType: 0               // → 后端: gameType
+        };
+
+        fetch(API_CONFIG.logoutEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestPayload)
+        })
+            .then(res => {
+                if (!res.ok) throw new Error('Logout failed');
+                sessionStorage.clear();
+                if (redirect) {
+                    return fetch(API_CONFIG.rootPage, { method: 'GET', headers: { 'Accept': 'text/html' } });
+                }
+            })
+            .then(res => res.text())
+            .then(html => {
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(() => alert('退出登录失败！'));
+    }
+
+    document.getElementById('logout').addEventListener('click', () => performLogout());
+
+    // =============================================================================
+    // 页面刷新/关闭时自动登出（使用 sendBeacon 确保请求发出）
+    // =============================================================================
+    window.addEventListener('beforeunload', function () {
+        const userId = sessionStorage.getItem('userId');
+        if (userId) {
+            const requestPayload = {
+                userId: userId,           // → 后端: userId
+                type: 'refresh',          // → 后端: type（页面刷新）
+                gameType: 0
+            };
+            const data = new Blob([JSON.stringify(requestPayload)], { type: 'application/json' });
+            navigator.sendBeacon(API_CONFIG.logoutEndpoint, data);
+        }
+    });
+    </script>
+</body>
+</html>

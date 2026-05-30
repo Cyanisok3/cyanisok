@@ -1,0 +1,32 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+http_server
+AIApps/ChatServer/http_server
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Credentials
+*.pem
+*.key
+credentials.json
