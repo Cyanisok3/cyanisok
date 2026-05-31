@@ -1,0 +1,103 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            g++ \
+            cmake \
+            make \
+            git \
+            libboost-all-dev \
+            libssl-dev \
+            nlohmann-json3-dev \
+            libmysqlcppconn-dev \
+            mysql-client \
+            libmysqlclient-dev \
+            libcurl4-openssl-dev \
+            librabbitmq-dev \
+            libopencv-dev \
+            wget
+
+      - name: Download and install ONNX Runtime
+        run: |
+          cd /tmp
+          wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-1.16.3.tgz
+          tar -xzf onnxruntime-linux-x64-1.16.3.tgz
+          sudo cp -r onnxruntime-linux-x64-1.16.3/include/* /usr/local/include/
+          sudo cp onnxruntime-linux-x64-1.16.3/lib/* /usr/local/lib/
+          sudo ldconfig
+          rm -rf onnxruntime-linux-x64-1.16.3*
+
+      - name: Clone and build muduo
+        run: |
+          cd /tmp
+          git clone --depth 1 https://github.com/chenshuo/muduo.git
+          cd muduo
+          sed -i 's/-Werror//g' CMakeLists.txt
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          cd /tmp && rm -rf muduo
+
+      - name: Clone and build SimpleAmqpClient
+        run: |
+          cd /tmp
+          git clone --depth 1 https://github.com/alanxz/SimpleAmqpClient.git
+          cd SimpleAmqpClient
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+          cd /tmp && rm -rf SimpleAmqpClient
+
+      - name: Build project
+        run: |
+          mkdir -p build && cd build && cmake .. -DBUILD_AI_APPS=ON -DBUILD_WEB_APPS=OFF && make -j$(nproc)
+
+      - name: Verify executable
+        run: ls -la build/http_server
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/http_server
+          retention-days: 7
+
+  # Optional: Run unit tests if they exist
+  test:
+    runs-on: ubuntu-22.04
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: List artifacts
+        run: ls -la

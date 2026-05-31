@@ -1,0 +1,74 @@
+#include "../include/AIUtil/MQManager.h"
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+MQManager::MQManager(size_t poolSize)
+    : poolSize_(poolSize), counter_(0) {
+    const char* host = std::getenv("RABBITMQ_HOST");
+    const char* user = std::getenv("RABBITMQ_USER");
+    const char* pass = std::getenv("RABBITMQ_PASS");
+
+    std::string rabbitmqHost = host ? host : "rabbitmq";
+    std::string rabbitmqUser = user ? user : "guest";
+    std::string rabbitmqPass = pass ? pass : "guest";
+
+    for (size_t i = 0; i < poolSize_; ++i) {
+        auto conn = std::make_shared<MQConn>();
+        conn->channel = AmqpClient::Channel::Create(rabbitmqHost, 5672, rabbitmqUser, rabbitmqPass, "/");
+        pool_.push_back(conn);
+    }
+}
+
+void MQManager::publish(const std::string& queue, const std::string& msg) {
+    size_t index = counter_.fetch_add(1) % poolSize_;
+    auto& conn = pool_[index];
+
+    std::lock_guard<std::mutex> lock(conn->mtx);
+    auto message = AmqpClient::BasicMessage::Create(msg);
+    conn->channel->BasicPublish("", queue, message);
+}
+
+void RabbitMQThreadPool::start() {
+    for (int i = 0; i < thread_num_; ++i) {
+        workers_.emplace_back(&RabbitMQThreadPool::worker, this, i);
+    }
+}
+
+void RabbitMQThreadPool::shutdown() {
+    stop_ = true;
+    for (auto& t : workers_) {
+        if (t.joinable()) t.join();
+    }
+}
+
+void RabbitMQThreadPool::worker(int id) {
+    try {
+        auto channel = AmqpClient::Channel::Create(rabbitmq_host_, 5672, rabbitmq_user_, rabbitmq_pass_, "/");
+        channel->DeclareQueue(queue_name_, false, true, false, false);
+        std::string consumer_tag = channel->BasicConsume(queue_name_, "", true, false, false);
+
+        channel->BasicQos(consumer_tag, 1);
+
+        while (!stop_) {
+            AmqpClient::Envelope::ptr_t env;
+            bool ok = channel->BasicConsumeMessage(consumer_tag, env, 500);
+            if (ok && env) {
+                std::string msg = env->Message()->Body();
+                handler_(msg);
+                channel->BasicAck(env);
+            }
+        }
+
+        channel->BasicCancel(consumer_tag);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Thread " << id << " exception: " << e.what() << std::endl;
+    }
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
