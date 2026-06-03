@@ -1,0 +1,82 @@
+---
+title: ""
+publishedAt: "2025-06-02"
+updatedAt: "2026-06-02"
+author: "Cyan Liu"
+summary: ""
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+# Empirical Research Proposal: Evaluating GenAI-Driven Tangible Proxies for Low-Barrier MR Authoring
+
+## 1. Research Gap & Motivation
+While Tangible User Interfaces (TUIs) afford more intuitive physical interaction than standard controllers, existing TUI systems require users to manually map physical objects through trial-and-error or rely on pre-trained models that only recognize specific items. Currently, no system automatically matches the geometric affordance of arbitrary everyday objects with the semantic requirements of virtual authoring tasks. 
+
+This research introduces a Generative AI-driven matching system. We aim to systematically evaluate the **incremental value** of GenAI in proxy recommendation (isolating it from the inherent benefits of tangible interaction) and explore how different AI-assistance paradigms affect the MR authoring experience.
+
+## 2. Research Questions & Hypotheses
+* **RQ1 (Performance & Workload):** What is the incremental value of GenAI recommendation in tangible MR authoring compared to manual proxy selection and traditional controllers?
+  * **H1a:** Compared to traditional controllers, using tangible proxies (both User-Selected and GenAI-Recommended) will result in significantly lower cognitive load scores (NASA-TLX) and error rates.
+  * **H1b:** Compared to User-Selected proxies, GenAI-Recommended proxies will significantly reduce Task Completion Time (TCT) and operation counts by eliminating the physical trial-and-error mapping process.
+  * **H1c:** The overall System Usability Scale (SUS) scores will show no significant difference across all three interaction modalities.
+
+* **RQ2 (Interaction Paradigms):** Within the GenAI-assisted workflow, how do the Task-Driven vs. Object-Driven paradigms affect user experience?
+  * **H2:** Compared to the Task-Driven paradigm, the Object-Driven paradigm will yield significantly higher scores in the IPQ Presence Questionnaire, Sense of Agency Scale (SoAS), and Creative Flow Scale.
+
+## 3. Methodology
+
+### 3.1 Study Design & Dependent Variables
+The experiment utilizes a **Mixed Experimental Design**:
+* **Within-Subjects IV:** Interaction Modality (3 levels: *Baseline Controllers*, *User-Selected Proxies*, *GenAI-Recommended Proxies*).
+* **Between-Subjects Moderator:** User Experience Level (Novices vs. MR/3D Experts).
+
+We will measure the following operationalized Dependent Variables (DVs):
+
+| Metric Type | Indicator | Measurement Method | Target Hypothesis |
+| :--- | :--- | :--- | :--- |
+| **Objective Performance** | Task Completion Time (TCT) | System auto-recorded | H1b |
+| **Objective Performance** | Error Rate | System auto-recorded (placement error > 5 cm, angle error > 10°) | H1a, H1b |
+| **Objective Performance** | Operation Count | System auto-recorded | H1a, H1b |
+| **Subjective Experience** | Cognitive Load | NASA-TLX Questionnaire | H1a |
+| **Subjective Experience** | System Usability | System Usability Scale (SUS) | H1c |
+| **Subjective Experience** | Presence & Immersion | IPQ Presence Questionnaire | H2 |
+| **Subjective Experience** | Sense of Agency | Sense of Agency Scale (SoAS) | H2 |
+| **Subjective Experience** | Creative Flow | Creative Flow Scale | H2 |
+
+### 3.2 Participants
+Based on an *a priori* power analysis using G\*Power (Repeated Measures ANOVA, 3 levels, effect size f = 0.35, α = 0.05, power = 0.80), the minimum required sample is 21. We will recruit **28 participants**, split equally between novices and experts, to account for potential dropouts.
+
+### 3.3 Experimental Tasks & Paradigm Sub-Conditions
+Participants will complete three authoring tasks representing different spatial granularities. 
+1. **Scene Layout (Macro-Spatial):** Arrange physical objects to construct a virtual scene map.
+2. **Motion Specification (Dynamic):** Manipulate an object to record an orbital camera trajectory.
+3. **Precision Adjustment (Micro-Spatial):** Adjust a virtual object to a specific scale (error < 5%) and rotation (error < 5°). *Rationale: This explicitly tests the theoretical trade-off—TUIs may excel in macro-spatial tasks but underperform against standard controllers in precision tasks.*
+
+To specifically address **RQ2**, the GenAI-Recommended condition will be subdivided into two paradigms (counterbalanced):
+* **Task-Driven:** The system displays the target task first, then recommends 3 candidate objects from the user's desk.
+* **Object-Driven:** The user spontaneously picks up any object, and the system infers its most suitable task.
+
+### 3.4 Procedure & Timeline (70 mins/participant)
+To mitigate fatigue, tasks and conditions will be fully counterbalanced using a **Latin Square Design**.
+* **0-5 min:** Informed consent and demographic survey.
+* **5-15 min:** Device calibration and system introduction.
+* **15-20 min:** Universal practice task to familiarize users with all three modalities.
+* **20-60 min:** Formal Experiment (3 Modalities). Under the GenAI modality, users will experience both paradigm sub-conditions across the tasks. Each modality block takes ~10 minutes.
+* **60-70 min:** Post-condition questionnaires and semi-structured interview.
+
+## 4. Apparatus & System Implementation
+* **Hardware:** Meta Quest 3 for mixed reality passthrough and high-frequency Hand Tracking.
+* **Edge-Cloud Architecture:** Unreal Engine 5 (C++) and ONNXRuntime will handle low-latency local geometric bounding box estimation. The `FHttpModule` will execute asynchronous calls to a Cloud Vision-Language Model (e.g., GPT-4o) for semantic affordance matching.
+
+## 5. Data Analysis Plan
+
+### 5.1 Quantitative Analysis
+We will utilize a **Two-Way Mixed ANOVA** to evaluate main effects and interaction effects. We will specifically analyze the Interaction Effect between *Modality* and *User Experience*; if significant, a Simple Main Effects analysis will be conducted to verify our "low-barrier" claim (i.e., whether TUIs benefit novices significantly more than experts). Furthermore, we will extract object geometric features (aspect ratio, volume) and analyze their correlation with user preference to formulate generalizable design guidelines. Effect sizes (Cohen's d, η²) and 95% Confidence Intervals will be reported.
+
+### 5.2 Qualitative Analysis
+All interview transcripts will be independently double-coded by two researchers. Coders will develop a codebook and calculate inter-rater reliability using **Cohen's kappa**. Only results with κ ≥ 0.70 will be deemed reliable, resolving discrepancies through consensus. 
+
+## 6. Open Science & Expected Contributions
+To ensure rigorous reproducibility and avoid p-hacking, this study's hypotheses, design, and statistical plans will be **pre-registered on the Open Science Framework (OSF)** prior to data collection. Upon completion, all anonymized datasets, codebases, questionnaires, and experimental video protocols will be open-sourced. 
+
+This study will deliver empirically validated Design Guidelines regarding the trade-offs of generative physical proxies, ultimately lowering the barrier to entry for immersive 3D storytelling.
