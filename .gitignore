@@ -4,6 +4,7 @@
 # Dependencies
 node_modules/
 pnpm-lock.yaml
+!apps/portfolio/pnpm-lock.yaml
 yarn.lock
 
 # Build output
