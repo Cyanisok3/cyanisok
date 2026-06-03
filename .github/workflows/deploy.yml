@@ -33,5 +33,7 @@ jobs:
             git reset --hard origin/dev
 
             docker compose config --quiet
-            docker compose up -d --build --remove-orphans
+            docker compose build portfolio-web chat-service
+            docker compose rm -sf portfolio-web chat-service
+            docker compose up -d --remove-orphans
             docker compose ps
