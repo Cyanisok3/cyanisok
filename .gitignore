@@ -21,6 +21,9 @@ build/
 # Local TLS certificates
 cyanisok.cn_nginx/
 
+# Local GitHub Actions runner archives
+actions-runner-linux-*.tar.gz
+
 # Logs
 *.log
 npm-debug.log*
