@@ -8,9 +8,11 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 ---
 
 
-# Arrays
+# C++ Coding Notes
 
-## Basics: Initialization & Basic Operations
+## Arrays: Initialization & Basic Operations
+
+### Typical Array
 
 ```cpp
 int arr[5]; // fill in with 0s by default
@@ -20,6 +22,8 @@ int arr[] = {1, 2, 3, 4, 5}; // or automatically allocate spaces
 arr[0] = 10;
 int x = arr[1];
 ```
+
+### 1D Vector
 
 ```cpp
 #include <vector>
@@ -35,7 +39,7 @@ vector<int> nums(arr, arr+3); // use array for ini.
 
 vector<int> v;
 
-v.push_back(10);
+v.push_back(10); // or use v.emplace_back(10); it's more efficient without the overhead of copy and move
 v.insert(v.begin(), 5); // insert 5 as the 1st element
 
 v.pop_back(); 
@@ -53,3 +57,114 @@ v.resize(10);
 for(int x : v) cout << x;
 ```
 
+## Application of **Two Pointers** & **Sliding Window**
+
+### Left-Right Pointers
+
+Normally we do:
+```cpp
+int left = 0, right = nums.size() - 1;
+int ans = 0;
+while (left < right) { // typical stopping criteria
+    if (conditionA) {
+        // your logic here
+        left++;
+    }
+    else if (conditionB) {
+        // your logic here
+        right--;
+    }
+    else {
+        // update answer
+        ans = /* new value */;
+        left++;
+        right--;
+    }
+}
+return ans;
+```
+
+### Fast & Slow Pointers
+
+In the context of single linked list:
+```cpp
+ListNode* slow = head;
+ListNode* fast = head;
+
+while (fast != nullptr && fast->next != nullptr) {
+    slow = slow->next; // one step once
+    fast = fast->next->next; // two steps once
+
+    if (slow == fast) { // cycle detected
+        return true;
+    }
+    return false;
+}
+
+### General Framework of Sliding Window
+
+```cpp
+int left = 0, right = 0; // the edges of window
+int res = 0; // the answer
+
+unordered_map<char/int, int> count;
+
+while (right < nums.size()) {
+    char c = nums[right];
+    count[c]++;
+    right++;
+    
+    while (windowNeedShrink) {
+        // update answer before shrinking
+        res = max(res, right - left);
+
+        char out = nums[left];
+        count[out]--; // move out the old element
+        left++; // shrinking then
+    }
+}
+return res;
+```
+
+## Marices
+
+For me, the matrix is the base of dynamic programming, and the best practice to get familiar with it might be Leetcode.54 Spiral Matrix:
+
+Given a matrix `matrix` with `m` rows and `n` columns, return all elements of the matrix in a clockwise spiral order.
+
+```cpp
+class Solution {
+public:
+    vector<int> spiralOrder(vector<vector<int>>& matrix) {
+        if (matrix.size() == 0 || matrix[0].size() == 0) {
+            return {};
+        }
+        int rows = matrix.size(), columns = matrix[0].size();
+        vector<int> order;
+        int left = 0, right = columns - 1;
+        int top = 0, bottom = rows - 1;
+
+        while (left <= right && top <= bottom) { // notice that equality condition holds as well
+        for (int column = left; column <= right; column++) {
+            order.push_back(matrix[top][column]);
+        }
+        for (int row = top + 1; row <= bottom; row++) {
+            order.push_back(matrix[row][right]);
+        }
+        if (left < right && top < bottom) { // in case there is only 1 row/column
+            for (int column = right - 1; column > left; column--) {
+                order.push_back(matrix[bottom][column]);
+            }
+            for (int row = bottom; row > top; row--) {
+                order.push_back(matrix[row][left]);
+            }
+        }
+        left++;
+        right--;
+        top++;
+        bottom--;
+        }
+        return order;
+    }
+};
+```
