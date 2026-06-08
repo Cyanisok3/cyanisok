@@ -14,12 +14,15 @@ interface DockProps {
 interface DockIconProps {
   className?: string;
   children?: ReactNode;
+  isActive?: boolean;
 }
 
 const DEFAULT_MAGNIFICATION = 60;
 const DEFAULT_DISTANCE = 100;
 const BASE_SIZE = 40;
 const BASE_ICON_SIZE = 20;
+const ACTIVE_SIZE = 48;
+const ACTIVE_ICON_SIZE = 24;
 const ICON_SIZE_RATIO = 0.5;
 const SPRING = { mass: 0.1, stiffness: 150, damping: 12 };
 
@@ -47,7 +50,7 @@ const Dock = ({ className, children, magnification = DEFAULT_MAGNIFICATION, dist
   );
 };
 
-const DockIcon = ({ className, children }: DockIconProps) => {
+const DockIcon = ({ className, children, isActive = false }: DockIconProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const context = useContext(DockContext);
 
@@ -56,6 +59,8 @@ const DockIcon = ({ className, children }: DockIconProps) => {
   }
 
   const { mouseX, magnification, distance } = context;
+  const restingContainerSize = isActive ? ACTIVE_SIZE : BASE_SIZE;
+  const restingIconSize = isActive ? ACTIVE_ICON_SIZE : BASE_ICON_SIZE;
 
   const distanceCalc = useTransform(mouseX, (val: number) => {
     const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
@@ -63,11 +68,11 @@ const DockIcon = ({ className, children }: DockIconProps) => {
   });
 
   const containerSize = useSpring(
-    useTransform(distanceCalc, [-distance, 0, distance], [BASE_SIZE, magnification, BASE_SIZE]),
+    useTransform(distanceCalc, [-distance, 0, distance], [restingContainerSize, magnification, restingContainerSize]),
     SPRING
   );
   const iconSize = useSpring(
-    useTransform(distanceCalc, [-distance, 0, distance], [BASE_ICON_SIZE, magnification * ICON_SIZE_RATIO, BASE_ICON_SIZE]),
+    useTransform(distanceCalc, [-distance, 0, distance], [restingIconSize, magnification * ICON_SIZE_RATIO, restingIconSize]),
     SPRING
   );
 
@@ -75,6 +80,8 @@ const DockIcon = ({ className, children }: DockIconProps) => {
     <motion.div
       ref={ref}
       style={{ width: containerSize, height: containerSize }}
+      whileTap={{ scale: 0.94 }}
+      data-active={isActive ? "true" : undefined}
       className={cn("relative flex aspect-square items-center justify-center rounded-full shrink-0", className)}
     >
       <motion.div

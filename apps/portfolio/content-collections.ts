@@ -14,6 +14,7 @@ const posts = defineCollection({
         updatedAt: z.string().optional(),
         author: z.string().optional(),
         summary: z.string(),
+        tags: z.array(z.string()).optional(),
         image: z.string().optional(),
         content: z.string(),
     }),

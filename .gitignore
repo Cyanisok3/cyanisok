@@ -27,3 +27,6 @@ actions-runner-linux-*.tar.gz
 # Logs
 *.log
 npm-debug.log*
+
+# Agent
+.codex
