@@ -4,6 +4,7 @@
 # Dependencies
 node_modules/
 pnpm-lock.yaml
+!apps/portfolio/pnpm-lock.yaml
 yarn.lock
 
 # Build output
@@ -17,6 +18,15 @@ build/
 .env.local
 .env.*.local
 
+# Local TLS certificates
+cyanisok.cn_nginx/
+
+# Local GitHub Actions runner archives
+actions-runner-linux-*.tar.gz
+
 # Logs
 *.log
 npm-debug.log*
+
+# Agent
+.codex

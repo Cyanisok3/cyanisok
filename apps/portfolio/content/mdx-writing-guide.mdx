@@ -1,0 +1,300 @@
+---
+title: "MDX Writing Guide for This Portfolio"
+publishedAt: "2026-06-04"
+updatedAt: "2026-06-04"
+author: "Cyan Liu"
+summary: "A practical reference for writing blog posts with Markdown, MDX, media embeds, links, tables, and the custom components available in this portfolio."
+image: "/background_bright.webp"
+---
+
+# MDX Writing Guide for This Portfolio
+
+This guide documents the basic writing syntax supported by the blog system in this portfolio. It covers standard Markdown, GitHub-flavored Markdown, and the custom MDX components currently available in the project.
+
+## Article Frontmatter
+
+Every blog post starts with a frontmatter block. It stores metadata used by the blog list, detail page, and SEO rendering.
+
+```mdx title="content/example-post.mdx"
+---
+title: "My Article Title"
+publishedAt: "2026-06-04"
+updatedAt: "2026-06-04"
+author: "Cyan Liu"
+summary: "A short summary of the post."
+image: "/Polaroid.webp"
+---
+```
+
+The required fields are `title`, `publishedAt`, and `summary`. The fields `updatedAt`, `author`, and `image` are optional but useful for a polished article page.
+
+## Headings
+
+Use headings to create a clear document structure.
+
+```mdx
+# H1 heading
+
+## H2 heading
+
+### H3 heading
+
+#### H4 heading
+```
+
+In practice, use one `#` heading for the main article title and use `##` or `###` for sections inside the article.
+
+## Paragraphs and Line Breaks
+
+Separate paragraphs with a blank line.
+
+```mdx
+This is the first paragraph.
+
+This is the second paragraph.
+```
+
+For a manual line break inside the same paragraph, add two spaces at the end of the line.
+
+```mdx
+First line  
+Second line
+```
+
+For normal essays, empty-line paragraphs are usually cleaner than manual line breaks.
+
+## Emphasis
+
+```mdx
+**Bold text**
+
+*Italic text*
+
+~~Strikethrough text~~
+
+Use `inline code` for commands, variables, filenames, and short code fragments.
+```
+
+## Lists
+
+Unordered list:
+
+```mdx
+- First item
+- Second item
+- Third item
+```
+
+Ordered list:
+
+```mdx
+1. First step
+2. Second step
+3. Third step
+```
+
+Task list:
+
+```mdx
+- [x] Finished item
+- [ ] Pending item
+```
+
+## Links
+
+External link:
+
+```mdx
+[GitHub](https://github.com/Cyanisok3)
+```
+
+Internal link:
+
+```mdx
+[Go to the chat page](/chat)
+```
+
+Use descriptive link text instead of raw URLs when possible.
+
+## Images
+
+Static assets should be placed under `apps/portfolio/public`. In MDX, reference them from the site root.
+
+Basic Markdown image:
+
+```mdx
+![A polaroid photo](/Polaroid.webp)
+```
+
+Recommended portfolio image component:
+
+```mdx
+<MediaContainer
+  src="/Polaroid.webp"
+  type="image"
+  aspectRatio="wide"
+  alt="A polaroid style photo"
+/>
+```
+
+Available `aspectRatio` values:
+
+```mdx
+aspectRatio="wide"
+aspectRatio="portrait"
+aspectRatio="square"
+```
+
+Use `wide` for landscape images, `portrait` for vertical images, and `square` for square crops.
+
+## Videos
+
+Videos should usually be placed under `apps/portfolio/public/videos`.
+
+```mdx
+<MediaContainer
+  src="/videos/hero-film-editing-4k.mp4"
+  type="video"
+  aspectRatio="portrait"
+  alt="Final Cut Pro editing demo"
+/>
+```
+
+The current `MediaContainer` renders video with browser controls, inline playback, and metadata preload. Use `portrait` for vertical clips and `wide` for landscape clips.
+
+## Blockquotes
+
+```mdx
+> This is a quoted paragraph. It is useful for citations, excerpts, and key ideas.
+```
+
+Keep blockquotes short. Long quoted passages are harder to scan on mobile.
+
+## Code Blocks
+
+Inline code:
+
+```mdx
+Run `pnpm build` before deploying.
+```
+
+Code block:
+
+````mdx
+```ts
+const name = "Cyan";
+console.log(name);
+```
+````
+
+Code block with title:
+
+````mdx
+```tsx title="components/example.tsx"
+export function Example() {
+  return <div>Hello MDX</div>;
+}
+```
+````
+
+The portfolio renders code blocks with syntax highlighting and a copy button.
+
+## Tables
+
+Tables are supported through GitHub-flavored Markdown.
+
+```mdx
+| Tool | Purpose |
+| --- | --- |
+| Next.js | Frontend framework |
+| MDX | Blog writing |
+| Docker | Deployment |
+```
+
+Use tables for comparison and structured reference data. Avoid using tables for long prose.
+
+## Horizontal Rule
+
+```mdx
+---
+```
+
+The portfolio styles horizontal rules as a subtle fading divider.
+
+## Raw JSX in MDX
+
+MDX allows JSX directly inside a document.
+
+```mdx
+<div className="rounded-lg border p-4">
+  This is a custom JSX block.
+</div>
+```
+
+Use raw JSX sparingly. For consistent article styling, prefer normal Markdown and registered MDX components such as `MediaContainer`.
+
+## Currently Registered Custom Components
+
+The current MDX component map includes:
+
+| Component | Use |
+| --- | --- |
+| `MediaContainer` | Styled images and videos with a Magic UI `BlurFade` entrance |
+| Custom `pre` | Syntax-highlighted code blocks with a copy button |
+| Custom `code` | Styled inline code |
+| Custom `table` | Responsive table wrapper |
+| Custom `hr` | Fading divider |
+
+This means `MediaContainer` can be used directly in MDX without importing it.
+
+## Suggested Post Template
+
+````mdx
+---
+title: "My Post Title"
+publishedAt: "2026-06-04"
+updatedAt: "2026-06-04"
+author: "Cyan Liu"
+summary: "A concise summary of the post."
+image: "/Polaroid.webp"
+---
+
+# My Post Title
+
+Write a short opening paragraph that explains what the post is about and why it matters.
+
+<MediaContainer
+  src="/Polaroid.webp"
+  type="image"
+  aspectRatio="wide"
+  alt="Article cover image"
+/>
+
+## First Section
+
+Write the main argument or story here.
+
+> Use a quote when it helps emphasize a key idea.
+
+## Second Section
+
+- First point
+- Second point
+- Third point
+
+```ts title="example.ts"
+console.log("A useful example");
+```
+
+## Conclusion
+
+End with the practical takeaway.
+````
+
+## Project-Specific Notes
+
+Only `.mdx` files directly inside `apps/portfolio/content` are collected as blog posts. Files in nested folders are not included by the current content configuration.
+
+Assets in `apps/portfolio/public` are referenced with root-relative paths, such as `/Polaroid.webp` or `/videos/example.mp4`.
+
+For large videos, prefer compressed MP4 files and avoid committing unnecessary 4K source exports. For images, `webp` is usually a good default for this portfolio.

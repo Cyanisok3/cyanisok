@@ -76,7 +76,7 @@ export default function Page() {
             <div className="flex-shrink-0">
               <BlurFade delay={BLUR_FADE_DELAY}>
                 <img
-                  src="/Polaroid.png"
+                  src="/Polaroid.webp"
                   alt={DATA.name}
                   className="w-52 md:w-64 h-auto rounded-lg shadow-xl"
                 />

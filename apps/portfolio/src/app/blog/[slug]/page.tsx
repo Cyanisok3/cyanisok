@@ -1,5 +1,5 @@
 import { allPosts } from "content-collections";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getReadingTime } from "@/lib/utils";
 import { DATA } from "@/data/resume";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -132,9 +132,22 @@ export default async function Blog({
         <h1 className="title font-semibold text-3xl md:text-4xl tracking-tighter leading-tight">
           {post.title}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {formatDate(post.publishedAt)}
+        <p className="max-w-2xl text-base leading-relaxed text-foreground/75">
+          {post.summary}
         </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-muted-foreground">
+          <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+          <span aria-hidden>·</span>
+          <span>{getReadingTime(post.content)}</span>
+          {post.tags?.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-md border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
       <div className="my-6 flex w-full items-center">
         <div
@@ -147,7 +160,7 @@ export default async function Blog({
           }}
         />
       </div>
-      <article className="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert">
+      <article className="prose max-w-full text-pretty font-sans leading-relaxed text-foreground/90 dark:prose-invert">
         <MDXContent code={post.mdx} components={mdxComponents} />
       </article>
 

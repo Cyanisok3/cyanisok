@@ -15,3 +15,16 @@ export function formatDate(date: string | Date) {
     timeZone: "UTC",
   });
 }
+
+export function getReadingTime(content: string) {
+  const readableContent = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ");
+  const latinWords =
+    readableContent.match(/[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*/g)?.length ?? 0;
+  const cjkChars = readableContent.match(/[\u3400-\u9fff]/g)?.length ?? 0;
+  const estimatedWords = latinWords + cjkChars / 2;
+  const minutes = Math.max(1, Math.ceil(estimatedWords / 220));
+
+  return `${minutes} min read`;
+}

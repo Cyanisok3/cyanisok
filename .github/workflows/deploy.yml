@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to server
+    runs-on: [self-hosted, linux, x64, cyanisok]
+
+    steps:
+      - name: Deploy locally
+        run: |
+          set -euo pipefail
+
+          cd /home/ubuntu/cyanisok
+
+          git fetch origin dev
+          git checkout dev
+          git reset --hard origin/dev
+
+          docker compose config --quiet
+          docker compose build portfolio-web
+          docker compose rm -sf portfolio-web
+          docker compose up -d --no-deps portfolio-web
+          docker compose ps

@@ -7,13 +7,14 @@ import { remarkCodeMeta } from "./src/lib/remark-code-meta";
 const posts = defineCollection({
     name: "posts",
     directory: "content",
-    include: "**/*.mdx",
+    include: "*.mdx",
     schema: z.object({
         title: z.string(),
         publishedAt: z.string(),
         updatedAt: z.string().optional(),
         author: z.string().optional(),
         summary: z.string(),
+        tags: z.array(z.string()).optional(),
         image: z.string().optional(),
         content: z.string(),
     }),
@@ -31,4 +32,3 @@ const posts = defineCollection({
 export default defineConfig({
     collections: [posts],
 });
-

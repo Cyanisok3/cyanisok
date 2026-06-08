@@ -29,6 +29,14 @@ export function AuthPanel({
 }: AuthPanelProps) {
   return (
     <div className="rounded-lg border bg-card/80 p-5 shadow-sm backdrop-blur">
+      <div className="mb-5 space-y-1">
+        <h2 className="text-lg font-semibold">Sign in to continue</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Authentication keeps your chat history connected to your session and
+          unlocks the image recognition tool.
+        </p>
+      </div>
+
       <div className="mb-5 flex rounded-md border bg-background p-1">
         {(["login", "register"] as const).map((mode) => (
           <button
@@ -41,6 +49,7 @@ export function AuthPanel({
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
             onClick={() => onAuthModeChange(mode)}
+            aria-pressed={authMode === mode}
           >
             {mode === "login" ? "Sign in" : "Create account"}
           </button>

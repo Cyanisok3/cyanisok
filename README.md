@@ -29,7 +29,17 @@ Set `DASHSCOPE_API_KEY`, then start the full stack from the repository root:
 docker compose up --build
 ```
 
-The portfolio is exposed at `http://localhost:3000`. The C++ chat service, MySQL, and RabbitMQ stay on the internal Docker network by default.
+The portfolio is exposed at `http://localhost:3000`. In production, the server's host Nginx or Baota panel should reverse proxy `cyanisok.cn` to `http://127.0.0.1:3000`. The C++ chat service, MySQL, and RabbitMQ stay on the internal Docker network by default.
+
+For production HTTPS, place the domain certificate files in the repository root on the server and configure the host Nginx server block to use them:
+
+```txt
+cyanisok.cn_nginx/
+├── cyanisok.cn.key
+└── cyanisok.cn_bundle.crt
+```
+
+This directory is intentionally ignored by Git because it contains private key material.
 
 ## Development
 
