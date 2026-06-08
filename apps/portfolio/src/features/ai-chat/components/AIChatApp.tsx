@@ -54,6 +54,8 @@ export function AIChatApp() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageResult, setImageResult] = useState<string | null>(null);
+  const [imageConfidence, setImageConfidence] = useState<number | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,12 +116,32 @@ export function AIChatApp() {
   }, [syncHistory]);
 
   useEffect(() => {
+    const view = new URLSearchParams(window.location.search).get("view");
+    if (view === "chat" || view === "image") {
+      setActiveView(view);
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
       }
     };
   }, [imagePreview]);
+
+  function handleActiveViewChange(view: ActiveView) {
+    setActiveView(view);
+
+    const url = new URL(window.location.href);
+    if (view === "chat") {
+      url.searchParams.delete("view");
+    } else {
+      url.searchParams.set("view", view);
+    }
+
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }
 
   function handleAuthModeChange(mode: AuthMode) {
     setAuthMode(mode);
@@ -179,6 +201,8 @@ export function AIChatApp() {
       setIsAuthed(false);
       setMessages([]);
       setImageResult(null);
+      setImageConfidence(null);
+      setImageError(null);
       setImagePreview(null);
       setSelectedFile(null);
       setNotice("Signed out");
@@ -244,6 +268,8 @@ export function AIChatApp() {
   function handleFileChange(file: File | null) {
     setSelectedFile(file);
     setImageResult(null);
+    setImageConfidence(null);
+    setImageError(null);
 
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
@@ -260,12 +286,14 @@ export function AIChatApp() {
     if (!selectedFile || uploading) return;
 
     if (selectedFile.size > 5 * 1024 * 1024) {
-      setError("Image must be 5MB or smaller.");
+      setError(null);
+      setImageError("Image must be 5MB or smaller.");
       return;
     }
 
     setUploading(true);
     setError(null);
+    setImageError(null);
     setNotice(null);
 
     try {
@@ -283,13 +311,16 @@ export function AIChatApp() {
         throw new Error(data.message || "No recognition result returned");
       }
 
-      const confidence =
-        typeof data.confidence === "number"
-          ? ` (${Math.round(data.confidence * 100)}%)`
-          : "";
-      setImageResult(`${data.class_name}${confidence}`);
+      setImageResult(data.class_name);
+      setImageConfidence(
+        typeof data.confidence === "number" ? data.confidence : null
+      );
     } catch (caught) {
-      handleApiFailure(caught);
+      if (isUnauthorized(caught)) {
+        handleApiFailure(caught);
+      } else {
+        setImageError(getErrorMessage(caught));
+      }
     } finally {
       setUploading(false);
     }
@@ -339,29 +370,37 @@ export function AIChatApp() {
       ) : (
         <div className="rounded-lg border bg-card/80 shadow-sm backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div className="flex rounded-md border bg-background p-1">
+            <div
+              className="flex rounded-md border bg-background p-1"
+              role="tablist"
+              aria-label="Chat tools"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeView === "chat"}
                 className={cn(
                   "inline-flex h-9 items-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors",
                   activeView === "chat"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
-                onClick={() => setActiveView("chat")}
+                onClick={() => handleActiveViewChange("chat")}
               >
                 <Bot className="size-4" />
                 Chat
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeView === "image"}
                 className={cn(
                   "inline-flex h-9 items-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors",
                   activeView === "image"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
-                onClick={() => setActiveView("image")}
+                onClick={() => handleActiveViewChange("image")}
               >
                 <ImageIcon className="size-4" />
                 Image
@@ -396,12 +435,15 @@ export function AIChatApp() {
               sending={sending}
               onDraftChange={setDraft}
               onSend={handleSend}
+              onPromptSelect={setDraft}
             />
           ) : (
             <ImagePanel
               selectedFile={selectedFile}
               imagePreview={imagePreview}
               imageResult={imageResult}
+              imageConfidence={imageConfidence}
+              imageError={imageError}
               uploading={uploading}
               onFileChange={handleFileChange}
               onUpload={handleUpload}

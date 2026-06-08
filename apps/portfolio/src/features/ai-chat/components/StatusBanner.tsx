@@ -14,6 +14,7 @@ export function StatusBanner({ error, notice }: StatusBannerProps) {
 
   return (
     <div
+      role={error ? "alert" : "status"}
       className={cn(
         "flex items-start gap-3 rounded-lg border bg-background/80 px-4 py-3 text-sm shadow-sm",
         error
