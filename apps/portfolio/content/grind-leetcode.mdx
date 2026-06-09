@@ -10,6 +10,19 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 
 # C++ Coding Notes
 
+## The First Thing Goes With **Algorithm Efficiency**
+In UNNC, we have a Y3 module named 'Algorithms Data Structures and Efficiency'. At the same time, when we are diving into the ocean of LeetCode problems, getting frustrated and trying to get inspired from solutions provided by others, they always mention something like O(mn), O(nlogn), etc..
+
+Basically, we have two concepts here: **Time Complexity** and **Space Complexity**, representing the relationship between the input size and the resources (time & space) an algorithm takes. For the space complexity, normally we can get awared by only looking at the additional data structures (e.g., a new array or matrix with the size of blabla..) an algorithm allocates. An interesting fact is that the amount of space an algorithm consumes is often *cheaper* than the time it takes - I'd say in most cases when you try to make trade-offs, and this could be also explained in the hardware perspective (you know, memory vs. CPU).
+
+For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer):
+
+```tex
+T(n) = \mathrm{work}(n) + \sum_i T(n_i)
+```
+
+
+
 ## Arrays: Initialization & Basic Operations
 
 ### Typical Array
@@ -100,6 +113,7 @@ while (fast != nullptr && fast->next != nullptr) {
     }
     return false;
 }
+```
 
 ### General Framework of Sliding Window
 
@@ -128,7 +142,7 @@ return res;
 
 ## Marices
 
-For me, the matrix is the base of dynamic programming, and the best practice to get familiar with it might be Leetcode.54 Spiral Matrix:
+For me, the matrix is the base of **dynamic programming**, and the best practice to get familiar with it might be Leetcode.54 Spiral Matrix:
 
 Given a matrix `matrix` with `m` rows and `n` columns, return all elements of the matrix in a clockwise spiral order.
 
@@ -168,3 +182,49 @@ public:
     }
 };
 ```
+
+It's obvious that a matrix takes up too much space, but there are many tricks to make the most of it, let alone that sometimes the problem may require us to implement a O(1) in-place algorithm. You might find examples in LeetCode.73 & LeetCode.289:
+
+In LeetCode 73, if any element in a **given matrix** is located in a **row or column** that contains a zero, we must set that element to zero as well. 
+
+Being aware that all the elements in relavant rows or columns will be set to zero if there exists at least one zero there, we can traverse all the elements in the matrix and set the first element in the row & column to zero. In this way, when we make the modification altogether after the first traversal, it won't affect other elements when overwriting. Notice that the first row is under the charge of ```matrix[0][0]```, but what about the first column if there was zero element among them - that's why we maintain a flag_col0 here - if there exists zero in the first column, we set it true:
+
+```cpp
+for (int i = 0; i < m; ++i) {
+    if (!matrix[i][0]) {
+        flag_col0 = true;
+    }
+    for (int j = 1; j < n; ++j) {
+        if (!matrix[i][j]) { // zero detected!
+            matrix[i][0] = matrix[0][j] = 0;
+        }
+    }
+}
+```
+
+Then we can freely update the matrix, but one more thing is - since we use the first element in each column as the flags, we cannot traverse from the first row - it will overwrite them! Such that we'll just traverse from the last row:
+
+```cpp
+for (int i = m - 1; i >= 0; --i) {
+    for (int j = 1; j < n; ++j) {
+        if (!matrix[i][0] || !matrix[0][j]) {
+            matrix[i][j] = 0;
+        }
+    }
+    if (flag_col0) {
+        matrix[i][0] = 0;
+    }
+}
+```
+
+Similar idea applied in LeetCode.289 - using elements in the given matrix as flags to make the most of the space. But this time something's different, the final state of each element in the matrix is affected by its eight neighbors, and there are 2 states: to survive or die!
+
+Four rules here:
+- If there are **fewer than 2** live cells in any of the 8 positions: live -> dead;
+- If there are **2 or 3** live cells: live -> live;
+- If there are **more than** 3 live cells: live -> dead;
+- If there are **exactly** 3 live cells: dead -> live.
+
+It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll still use two major 'for' loops - one 'for' marking elements in the matrix, the other 'for' updating. A noval measure here is to mark them based on their initial->final states, for instances, these live->dead (1->0) can be -1, and these dead->live can be 2 temporarily, these who remains unchanged stay.
+
+I won't provide code snippets here since the idea is similar.

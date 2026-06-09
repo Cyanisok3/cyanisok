@@ -149,7 +149,7 @@
     background-color: transparent;
   }
 
-.prose pre {
+  .prose pre {
     @apply leading-relaxed bg-transparent! font-mono!;
   }
 
@@ -187,6 +187,20 @@
 
   .prose a {
     @apply text-primary underline underline-offset-4;
+  }
+
+  .prose strong {
+    @apply font-semibold text-foreground!;
+  }
+
+  .prose em {
+    @apply text-foreground/90;
+  }
+
+  .prose :where(ul > li::marker, ol > li::marker):not(
+      :where([class~="not-prose"] *)
+    ) {
+    @apply text-muted-foreground!;
   }
 
   .prose blockquote {
@@ -228,7 +242,7 @@
     @apply px-6 py-4 align-middle m-0 whitespace-nowrap;
   }
 
-  .prose tr{
+  .prose tr {
     @apply hover:bg-accent/50! transition-colors! cursor-pointer! h-10!;
   }
 
@@ -237,7 +251,7 @@
   }
 
   .prose :where(td):not(:where([class~="not-prose"] *)) {
-    @apply text-muted-foreground border-b border-border text-sm! p-2!;
+    @apply text-foreground/80 border-b border-border text-sm! p-2!;
   }
 
   .prose :where(th:not(:last-child)):not(:where([class~="not-prose"] *)),

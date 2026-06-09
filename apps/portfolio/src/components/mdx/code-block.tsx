@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect, type ComponentProps } from "react";
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "../ui/button";
 import { codeToHtml } from "shiki/bundle/web";
@@ -14,24 +22,65 @@ function extractLanguage(className?: string): string {
   return match ? match[1] : "plaintext";
 }
 
+function getTextContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join("");
+  }
+
+  if (isValidElement(node)) {
+    return getTextContent((node.props as { children?: ReactNode }).children);
+  }
+
+  return "";
+}
+
+function getCodeMetadata(children: ReactNode) {
+  const codeElement = Children.toArray(children).find(
+    (child) => isValidElement(child) && child.type === "code"
+  );
+
+  if (!isValidElement(codeElement)) {
+    return {
+      codeText: getTextContent(children),
+      className: "",
+      title: null,
+    };
+  }
+
+  const props = codeElement.props as {
+    children?: ReactNode;
+    className?: string;
+    "data-title"?: string;
+  };
+
+  return {
+    codeText: getTextContent(props.children),
+    className: props.className || "",
+    title: props["data-title"] || null,
+  };
+}
+
 export function CodeBlock({ children, ...props }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const [{ html, className, title }, setRenderState] = useState<{
+  const { codeText, className, title } = useMemo(
+    () => getCodeMetadata(children),
+    [children]
+  );
+  const highlightSignature = `${className}\u0000${codeText}`;
+  const [{ html, signature }, setHighlight] = useState<{
     html: string;
-    className: string;
-    title: string | null;
-  }>({ html: "", className: "", title: null });
-  const preRef = useRef<HTMLPreElement>(null);
+    signature: string;
+  }>({ html: "", signature: "" });
+  const isCurrentHighlight = signature === highlightSignature;
+  const isLoading = !isCurrentHighlight;
 
   useEffect(() => {
-    const pre = preRef.current;
-    const codeEl = pre?.querySelector("code");
-    if (!pre || !codeEl) return;
-
-    const codeText = codeEl.textContent || "";
-    const lang = extractLanguage(codeEl.className);
-    const nextTitle = codeEl.getAttribute("data-title");
-    const nextClassName = codeEl.className || "";
+    let cancelled = false;
+    const lang = extractLanguage(className);
 
     void codeToHtml(codeText, {
       lang: lang as any,
@@ -42,24 +91,33 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
       defaultColor: false,
     })
       .then((html) => {
+        if (cancelled) return;
+
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
-        setRenderState({
+        setHighlight({
           html: doc.querySelector("code")?.innerHTML ?? "",
-          className: nextClassName,
-          title: nextTitle,
+          signature: highlightSignature,
         });
       })
       .catch((error) => {
+        if (cancelled) return;
+
         console.error("Failed to highlight code:", error);
-        setRenderState({ html: "", className: nextClassName, title: nextTitle });
+        setHighlight({
+          html: "",
+          signature: highlightSignature,
+        });
       });
-  }, [children]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [className, codeText, highlightSignature]);
 
   const handleCopy = async () => {
-    const code = preRef.current?.textContent || "";
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(codeText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -70,7 +128,6 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
   return (
     <div className="group relative rounded-xl overflow-hidden border border-border">
       <pre
-        ref={preRef}
         {...props}
         className={cn("p-0! m-0! overflow-x-auto", props.className)}
       >
@@ -89,22 +146,28 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
         >
           {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
         </Button>
-        {html && (
+        {isCurrentHighlight && html ? (
           <div className="p-3">
             <code
               className={`shiki ${className}`}
               dangerouslySetInnerHTML={{ __html: html }}
             />
           </div>
-        )}
-
-        {!html && (
+        ) : isLoading ? (
+          <div className="space-y-2 p-4" aria-hidden="true">
+            <div className="h-3 w-11/12 animate-pulse rounded-full bg-muted" />
+            <div className="h-3 w-9/12 animate-pulse rounded-full bg-muted" />
+            <div className="h-3 w-10/12 animate-pulse rounded-full bg-muted" />
+            <div className="h-3 w-7/12 animate-pulse rounded-full bg-muted" />
+          </div>
+        ) : (
           <div className="p-4">
-            {children}
+            <code className={cn("block whitespace-pre text-foreground/90", className)}>
+              {codeText}
+            </code>
           </div>
         )}
       </pre >
     </div >
   );
 }
-
