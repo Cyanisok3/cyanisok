@@ -173,6 +173,10 @@
     @apply text-lg! font-semibold! tracking-tight! leading-tight! text-foreground!;
   }
 
+  .prose :where(h2, h3):not(:where([class~="not-prose"] *)) {
+    @apply scroll-mt-24;
+  }
+
   .prose h4 {
     @apply text-base! font-medium! tracking-tight! leading-tight! text-foreground!;
   }

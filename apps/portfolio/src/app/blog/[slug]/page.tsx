@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXContent } from "@content-collections/mdx/react";
 import { mdxComponents } from "@/mdx-components";
+import { TableOfContents } from "@/components/blog/table-of-contents";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -92,6 +93,8 @@ export default async function Blog({
 
   const previousPost = currentIndex > 0 ? sortedPosts[currentIndex - 1] : null;
   const nextPost = currentIndex < sortedPosts.length - 1 ? sortedPosts[currentIndex + 1] : null;
+  const tocItems = post.toc ?? [];
+  const hasToc = tocItems.length >= 2;
 
   const getSlug = (post: (typeof sortedPosts)[0]) =>
     post._meta.path.replace(/\.mdx$/, "");
@@ -160,47 +163,64 @@ export default async function Blog({
           }}
         />
       </div>
-      <article className="prose max-w-full text-pretty font-sans leading-relaxed text-foreground/90 dark:prose-invert">
-        <MDXContent code={post.mdx} components={mdxComponents} />
-      </article>
 
-      <nav className="mt-12 pt-8 max-w-2xl">
-        <div className="flex flex-col sm:flex-row justify-between gap-4">
-          {previousPost ? (
-            <Link
-              href={`/blog/${getSlug(previousPost)}`}
-              className="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-            >
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <ChevronLeft className="size-3" />
-                Previous
-              </span>
-              <span className="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
-                {previousPost.title}
-              </span>
-            </Link>
-          ) : (
-            <div className="hidden sm:block flex-1" />
-          )}
+      {hasToc && (
+        <TableOfContents items={tocItems} variant="mobile" className="mb-8" />
+      )}
 
-          {nextPost ? (
-            <Link
-              href={`/blog/${getSlug(nextPost)}`}
-              className="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors text-right"
-            >
-              <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                Next
-                <ChevronRight className="size-3" />
-              </span>
-              <span className="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
-                {nextPost.title}
-              </span>
-            </Link>
-          ) : (
-            <div className="hidden sm:block flex-1" />
-          )}
+      <div className="relative">
+        <div className="min-w-0">
+          <article className="prose max-w-full text-pretty font-sans leading-relaxed text-foreground/90 dark:prose-invert">
+            <MDXContent code={post.mdx} components={mdxComponents} />
+          </article>
+
+          <nav className="mt-12 pt-8 max-w-2xl">
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
+              {previousPost ? (
+                <Link
+                  href={`/blog/${getSlug(previousPost)}`}
+                  className="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                >
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <ChevronLeft className="size-3" />
+                    Previous
+                  </span>
+                  <span className="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
+                    {previousPost.title}
+                  </span>
+                </Link>
+              ) : (
+                <div className="hidden sm:block flex-1" />
+              )}
+
+              {nextPost ? (
+                <Link
+                  href={`/blog/${getSlug(nextPost)}`}
+                  className="group flex-1 flex flex-col gap-1 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors text-right"
+                >
+                  <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                    Next
+                    <ChevronRight className="size-3" />
+                  </span>
+                  <span className="text-sm font-medium group-hover:text-foreground transition-colors whitespace-normal wrap-break-word">
+                    {nextPost.title}
+                  </span>
+                </Link>
+              ) : (
+                <div className="hidden sm:block flex-1" />
+              )}
+            </div>
+          </nav>
         </div>
-      </nav>
+
+        {hasToc && (
+          <TableOfContents
+            items={tocItems}
+            variant="desktop"
+            className="absolute left-[calc(100%+2.5rem)] top-0 w-56"
+          />
+        )}
+      </div>
     </section>
   );
 }

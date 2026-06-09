@@ -10,17 +10,14 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 
 # C++ Coding Notes
 
+
 ## The First Thing Goes With **Algorithm Efficiency**
+
 In UNNC, we have a Y3 module named 'Algorithms Data Structures and Efficiency'. At the same time, when we are diving into the ocean of LeetCode problems, getting frustrated and trying to get inspired from solutions provided by others, they always mention something like O(mn), O(nlogn), etc..
 
 Basically, we have two concepts here: **Time Complexity** and **Space Complexity**, representing the relationship between the input size and the resources (time & space) an algorithm takes. For the space complexity, normally we can get awared by only looking at the additional data structures (e.g., a new array or matrix with the size of blabla..) an algorithm allocates. An interesting fact is that the amount of space an algorithm consumes is often *cheaper* than the time it takes - I'd say in most cases when you try to make trade-offs, and this could be also explained in the hardware perspective (you know, memory vs. CPU).
 
 For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer):
-
-```tex
-T(n) = \mathrm{work}(n) + \sum_i T(n_i)
-```
-
 
 
 ## Arrays: Initialization & Basic Operations
@@ -69,6 +66,7 @@ v.resize(10);
 
 for(int x : v) cout << x;
 ```
+
 
 ## Application of **Two Pointers** & **Sliding Window**
 
@@ -139,6 +137,7 @@ while (right < nums.size()) {
 }
 return res;
 ```
+
 
 ## Marices
 
@@ -228,3 +227,67 @@ Four rules here:
 It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll still use two major 'for' loops - one 'for' marking elements in the matrix, the other 'for' updating. A noval measure here is to mark them based on their initial->final states, for instances, these live->dead (1->0) can be -1, and these dead->live can be 2 temporarily, these who remains unchanged stay.
 
 I won't provide code snippets here since the idea is similar.
+
+
+## Hash Table
+
+Hash table is known as a super effient data structure in terms of searching, deleting or inserting an element.
+
+### Basic Ops
+
+Normally, there are **three ways** to implement it:
+
+```cpp
+// simple key-value style in form of array, easy to customize its size
+int hash[10001] = {0};
+
+// only key exists, handy to use when simply need to record some numbers, it saves space as well
+unordered_set<int> set;
+
+// standard implementation
+unordered_map<int, int> map;
+```
+
+CRUD:
+
+```cpp
+// create (insert)
+hash[key] = val;
+set.insert(key); // or use .emplace()
+map[key] = val;
+
+//read
+hash[key];
+// returns 1 or 0:
+set.count(key);
+map.count(key);
+// returns a pointer (using iterator):
+if (set.find(key) != set.end()) {}
+if (map.find(key) != map.end()) {}
+
+// update
+hash[key] = new_val;
+// *no value for set*
+map[key] = new_val;
+
+// delete
+hash[key] = 0; // simply set to zero
+set.erase(key);
+map.erase(key);
+```
+
+If you aim at time effiency, it's almost the 1st choice - taking space as a payoff, though. For the use of `unordered_map`, it's true that it represents a mapping relationship, but only one-way from key to value. This is because the hash table is efficient only when you search for keys (their uniqueness), and its values can be same.
+Relavant ideas can be found in LeetCode.290:
+
+When `pattern = "abba"`, `s = "dog cat cat dog"`, you need to determine if they match each other...
+
+```cpp
+unordered_map<char, string> p2s;
+unordered_map<string, char> s2p;
+
+/* ... */
+
+if (s2p.count(cword) && s2p[cword] != ch) return false;
+if (p2s.count(ch) && p2s[ch] != cword) return false;
+```
+where ch and cword are elements of the strings `pattern` and `s`, respectively.
