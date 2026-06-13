@@ -120,12 +120,12 @@ export const DATA = {
   ],
   projects: [
     {
-      title: "Chat Collect",
-      href: "https://chatcollect.com",
-      dates: "Jan 2024 - Feb 2024",
+      title: "Open Educational Resource for Virtual Production",
+      href: "https://dovetime01.github.io/UNNC-GRP-Team-17/",
+      dates: "Mar 2026 - Apr 2026",
       active: true,
       description:
-        "With the release of the [OpenAI GPT Store](https://openai.com/blog/introducing-the-gpt-store), I decided to build a SaaS which allows users to collect email addresses from their GPT users. This is a great way to build an audience and monetize your GPT API usage.",
+        "From Nov. 2025 to Apr. 2026, I participated in a group project focused on virtual production, where we developed an open educational resource (OER) website. The project aimed to provide comprehensive learning materials for those interested in virtual production - a real-time visualization technique that combines physical and virtual elements.",
       technologies: [
         "Next.js",
         "Typescript",
@@ -139,13 +139,13 @@ export const DATA = {
       links: [
         {
           type: "Website",
-          href: "https://chatcollect.com",
+          href: "https://dovetime01.github.io/UNNC-GRP-Team-17/",
           icon: <Icons.globe className="size-3" />,
         },
       ],
       image: "",
       video:
-        "https://pub-83c5db439b40468498f97946200806f7.r2.dev/chat-collect.mp4",
+        "https://pub-4b86da2845fb4feda7daaf0a99a2391b.r2.dev/oer.mp4",
     },
   ],
   achievements: [],
