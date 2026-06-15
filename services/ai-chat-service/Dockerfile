@@ -9,7 +9,6 @@ ARG BUILD_TYPE=release
 FROM ubuntu:22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV RABBITMQ_HOST=rabbitmq
 ENV MYSQL_HOST=mysql
 ENV HTTP_PORT=80
 
@@ -23,18 +22,15 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/source
     git \
     wget \
     curl \
-    vim \
-    sudo \
-    htop \
-    net-tools \
-    libboost-all-dev \
+    libboost-dev \
     libssl-dev \
     nlohmann-json3-dev \
     libmysqlcppconn-dev \
-    mysql-client \
     libmysqlclient-dev \
-    libopencv-dev \
-    librabbitmq-dev \
+    libopencv-core-dev \
+    libopencv-imgproc-dev \
+    libopencv-imgcodecs-dev \
+    libopencv-dnn-dev \
     libcurl4-openssl-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -51,8 +47,7 @@ RUN git clone --depth 1 https://gh-proxy.com/github.com/chenshuo/muduo.git && \
 
 # Install ONNX Runtime
 WORKDIR /tmp
-RUN apt-get update && apt-get install -y file && \
-    if file /lib/systemd/systemd 2>/dev/null | grep -q aarch64 || uname -m | grep -q aarch64; then \
+RUN if [ "$(dpkg --print-architecture)" = "arm64" ]; then \
         ONNX_PKG="onnxruntime-linux-aarch64-1.16.3.tgz"; \
     else \
         ONNX_PKG="onnxruntime-linux-x64-1.16.3.tgz"; \
@@ -63,15 +58,6 @@ RUN apt-get update && apt-get install -y file && \
     cp onnxruntime/lib/* /usr/local/lib/ && \
     ldconfig && \
     rm -rf onnxruntime "${ONNX_PKG}"
-
-# Build SimpleAmqpClient
-WORKDIR /tmp
-RUN git clone --depth 1 https://gh-proxy.com/github.com/alanxz/SimpleAmqpClient.git && \
-    cd SimpleAmqpClient && \
-    mkdir build && cd build && \
-    cmake .. && make -j$(nproc) && make install && \
-    ldconfig && \
-    cd /tmp && rm -rf SimpleAmqpClient
 
 # Download MobileNetV2 ONNX model and ImageNet labels
 WORKDIR /root
@@ -98,7 +84,8 @@ COPY . .
 # Build
 RUN rm -rf build && mkdir -p build && cd build && \
     cmake .. -DBUILD_AI_APPS=ON && \
-    make -j$(nproc)
+    make -j$(nproc) && \
+    ctest --output-on-failure
 
 EXPOSE ${HTTP_PORT}
 

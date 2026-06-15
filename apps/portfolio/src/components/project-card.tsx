@@ -76,6 +76,7 @@ export function ProjectCard({
               muted
               playsInline
               className="w-full h-48 object-cover"
+              aria-label={`${title} demo video`}
             />
           ) : image ? (
             <ProjectImage src={image} alt={title} />

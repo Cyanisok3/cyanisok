@@ -43,22 +43,17 @@ void ChatLoginHandler::handle(const http::HttpRequest& req, http::HttpResponse* 
             return;
         }
 
-        int userId = queryUserId(username, password);
-        if (userId != -1)
+        const auto user = server_->userRepository_.findByUsername(username);
+        if (user && security::verifyPassword(password, user->passwordHash))
         {
             auto session = server_->getSessionManager()->getSession(req, resp);
 
-            session->setValue("userId", std::to_string(userId));
+            session->setValue("userId", std::to_string(user->id));
             session->setValue("username", username);
             session->setValue("isLoggedIn", "true");
 
-            {
-                std::lock_guard<std::mutex> lock(server_->mutexForOnlineUsers_);
-                server_->onlineUsers_[userId] = true;
-            }
-
             writeJsonResponse(req, resp, http::HttpResponse::k200Ok, "OK",
-                {{"success", true}, {"userId", userId}, {"username", username}});
+                {{"success", true}, {"userId", user->id}, {"username", username}});
             return;
         }
         else
@@ -68,26 +63,19 @@ void ChatLoginHandler::handle(const http::HttpRequest& req, http::HttpResponse* 
             return;
         }
     }
-    catch (const std::exception& e)
+    catch (const json::exception&)
     {
-        writeJsonResponse(req, resp, http::HttpResponse::k400BadRequest, "Bad Request",
-            {{"status", "error"}, {"message", e.what()}}, true);
+        writeJsonResponse(req, resp, http::HttpResponse::k400BadRequest,
+            "Bad Request",
+            {{"status", "error"}, {"message", "Invalid JSON body"}}, true);
         return;
     }
-}
-
-int ChatLoginHandler::queryUserId(const std::string& username, const std::string& password)
-{
-    std::string sql = "SELECT id, password_hash FROM users WHERE username = ?";
-    auto res = mysqlUtil_.executeQuery(sql, username);
-    if (res->next())
+    catch (const std::exception& e)
     {
-        int id = res->getInt("id");
-        std::string passwordHash = res->getString("password_hash");
-        if (security::verifyPassword(password, passwordHash))
-        {
-            return id;
-        }
+        LOG_ERROR << "Login failed: " << e.what();
+        writeJsonResponse(req, resp, http::HttpResponse::k500InternalServerError,
+            "Internal Server Error",
+            {{"status", "error"}, {"message", "Unable to process login"}}, true);
+        return;
     }
-    return -1;
 }

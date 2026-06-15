@@ -20,7 +20,6 @@
 #include "../router/Router.h"
 #include "../session/SessionManager.h"
 #include "../middleware/MiddlewareChain.h"
-#include "../middleware/cors/CorsMiddleware.h"
 #include "../ssl/SslConnection.h"
 #include "../ssl/SslContext.h"
 

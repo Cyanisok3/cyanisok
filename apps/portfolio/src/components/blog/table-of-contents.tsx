@@ -9,24 +9,32 @@ type TableOfContentsProps = {
 };
 
 function TocLinks({ items }: { items: TocItem[] }) {
+  let sectionNumber = 0;
+
   return (
     <ol className="space-y-1.5">
-      {items.map((item, index) => (
-        <li key={item.id}>
-          <a
-            href={`#${item.id}`}
-            className={cn(
-              "group flex items-baseline gap-2 rounded-md px-2 py-1.5 text-sm leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              item.depth === 3 && "ml-4 text-xs"
-            )}
-          >
-            <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70 group-hover:text-foreground/70">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <span>{item.text}</span>
-          </a>
-        </li>
-      ))}
+      {items.map((item) => {
+        const number = item.depth === 2 ? ++sectionNumber : null;
+
+        return (
+          <li key={item.id}>
+            <a
+              href={`#${item.id}`}
+              className={cn(
+                "group flex items-baseline gap-2 rounded-md px-2 py-1.5 text-sm leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                item.depth === 3 && "ml-8 text-xs"
+              )}
+            >
+              {number !== null && (
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70 group-hover:text-foreground/70">
+                  {String(number).padStart(2, "0")}
+                </span>
+              )}
+              <span>{item.text}</span>
+            </a>
+          </li>
+        );
+      })}
     </ol>
   );
 }

@@ -10,7 +10,7 @@ It combines:
 - A `/chat` frontend integrated into the portfolio.
 - A C++ muduo-based AI Chat Service.
 - A Next.js same-origin API proxy.
-- MySQL and RabbitMQ for backend state and message persistence.
+- MySQL as the source of truth for users and chat messages.
 - Docker Compose for the integrated application stack.
 - Host Nginx, HTTPS, ICP footer, and GitHub Actions self-hosted deployment.
 
@@ -68,7 +68,6 @@ chat-service container :80
   |
   +--> DashScope-compatible AI API
   +--> MySQL
-  +--> RabbitMQ
   +--> ONNX Runtime image recognizer
 ```
 
@@ -182,6 +181,16 @@ JSON requests: 32 KiB
 Upload requests: 8 MiB
 ```
 
+The chat UI limits selected image files to 5 MiB. Before OpenCV decodes an
+uploaded image, the backend additionally enforces:
+
+```text
+Compressed image data: 6 MiB
+Maximum dimension: 8192 px
+Maximum pixel count: 16 megapixels
+Supported formats: PNG, JPEG, GIF, WebP
+```
+
 ## C++ AI Chat Service
 
 Path:
@@ -195,7 +204,7 @@ The backend contains:
 - `HttpServer`: a lightweight HTTP framework built on muduo.
 - `AIApps/ChatServer`: the actual AI chat application.
 - MySQL integration.
-- RabbitMQ integration.
+- Direct MySQL persistence through domain repositories.
 - ONNX Runtime image recognition.
 - DashScope-compatible chat completion calls.
 
@@ -211,6 +220,7 @@ POST /chat/send
 POST /chat/history
 POST /upload/send
 GET  /health
+GET  /ready
 ```
 
 `POST /chat/send` uses Server-Sent Events for streaming responses.
@@ -292,14 +302,13 @@ Services:
 portfolio-web
 chat-service
 mysql
-rabbitmq
 ```
 
 Production exposure:
 
-- `portfolio-web` maps host `3000` to container `3000`.
+- `portfolio-web` binds `127.0.0.1:3000` to container `3000`.
 - `chat-service` is exposed only inside the Docker network.
-- MySQL and RabbitMQ are internal by default.
+- MySQL is internal by default.
 - Public HTTP/HTTPS is handled by host Nginx, not by a Docker Nginx container.
 
 Important service names:
@@ -308,7 +317,6 @@ Important service names:
 portfolio-web -> cyanisok-portfolio
 chat-service  -> cyanisok-ai-chat-service
 mysql         -> cyanisok-ai-chat-mysql
-rabbitmq      -> cyanisok-ai-chat-rabbitmq
 ```
 
 ## Environment Variables
@@ -327,9 +335,14 @@ AI_STREAM_IDLE_TIMEOUT_SECONDS
 SESSION_COOKIE_SECURE
 MYSQL_USER
 MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD
 MYSQL_DATABASE
-RABBITMQ_USER
-RABBITMQ_PASS
+AI_WORKER_COUNT
+AI_QUEUE_CAPACITY
+CHAT_CONTEXT_MESSAGES
+CHAT_HISTORY_MESSAGES
+CHAT_RETENTION_DAYS
+IMAGE_RECOGNITION_ENABLED
 ```
 
 For the integrated stack, `portfolio-web` receives:
@@ -420,23 +433,28 @@ Current workflow behavior:
 
 ```text
 git fetch origin dev
+compare origin/dev with refs/cyanisok/deployed/dev
 git checkout dev
 git reset --hard origin/dev
 docker compose config --quiet
-docker compose build portfolio-web
-docker compose rm -sf portfolio-web
-docker compose up -d --no-deps portfolio-web
+build only the services affected by changed paths
+wait for service health checks
+validate and reload Nginx when deploy/nginx changes
+update refs/cyanisok/deployed/dev only after a successful deployment
 docker compose ps
 ```
 
-This intentionally rebuilds only `portfolio-web` by default.
+Failed or cancelled deployments do not advance the deployment baseline. The next
+run therefore includes every change since the last healthy release.
 
-Reason:
+Backend CI is defined at:
 
-- Most routine changes are frontend/content changes.
-- Rebuilding `chat-service` can be slower and may download model/runtime dependencies.
+```text
+.github/workflows/backend-ci.yml
+```
 
-If backend files under `services/ai-chat-service` change, deploy `chat-service` explicitly.
+It runs for backend changes on `main` and `dev`, builds the C++ service, and
+executes CTest.
 
 ## Local Development
 
@@ -530,4 +548,3 @@ Possible later upgrades:
 - Personal writing-style conditioning based on selected public posts.
 
 Do not over-engineer the RAG layer before the blog corpus becomes large enough to evaluate retrieval quality.
-

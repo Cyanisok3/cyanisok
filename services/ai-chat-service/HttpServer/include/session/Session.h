@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <chrono>
+#include <mutex>
 
 namespace http
 {
@@ -35,6 +36,7 @@ public:
     void remove(const std::string&key);
     void clear();
 private:
+    mutable std::mutex                          mutex_;
     std::string                                  sessionId_;
     std::unordered_map<std::string, std::string> data_;
     std::chrono::system_clock::time_point        expiryTime_;

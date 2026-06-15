@@ -32,10 +32,13 @@ export default function Page() {
               />
 
               {/* Location */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="size-4" />
+              <BlurFade
+                delay={BLUR_FADE_DELAY * 1.5}
+                className="flex items-center gap-2 text-muted-foreground"
+              >
+                <MapPin className="size-4" aria-hidden />
                 <span className="text-base md:text-lg">{DATA.location}</span>
-              </div>
+              </BlurFade>
 
               {/* Description */}
               <BlurFadeText

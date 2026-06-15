@@ -34,6 +34,7 @@ file(GLOB_RECURSE CHAT_SERVER_SRC
 
 # 主程序文件
 set(MAIN_SRC "${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/main.cpp")
+list(REMOVE_ITEM CHAT_SERVER_SRC "${MAIN_SRC}")
 
 # 添加可执行文件
 add_executable(http_server
@@ -52,8 +53,6 @@ target_link_libraries(http_server
     ssl
     crypto
     ${CURL_LIBRARIES}
-    SimpleAmqpClient
-    rabbitmq
     opencv_core
     opencv_imgproc
     opencv_imgcodecs
@@ -75,3 +74,15 @@ message(STATUS "ONNX Runtime library: ${ONNXRUNTIME_LIBRARY}")
 message(STATUS "Main source file: ${MAIN_SRC}")
 message(STATUS "HTTP Server sources: ${HTTP_SERVER_SRC}")
 message(STATUS "Chat Server sources: ${CHAT_SERVER_SRC}")
+
+if(BUILD_TESTING)
+    add_executable(unit_tests
+        ${PROJECT_SOURCE_DIR}/tests/UnitTests.cpp
+        ${PROJECT_SOURCE_DIR}/HttpServer/src/session/Session.cpp
+        ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/BoundedExecutor.cpp
+        ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/ImageValidation.cpp
+        ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/SseStreamParser.cpp
+    )
+    target_link_libraries(unit_tests pthread)
+    add_test(NAME unit_tests COMMAND unit_tests)
+endif()

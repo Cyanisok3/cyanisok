@@ -10,7 +10,7 @@ Core project areas:
 
 - `apps/portfolio`: Next.js portfolio, blog, and `/chat` frontend.
 - `services/ai-chat-service`: C++ muduo-based API service for AI chat, auth, history, and image recognition.
-- `docker-compose.yml`: integrated production stack for portfolio, chat service, MySQL, and RabbitMQ.
+- `docker-compose.yml`: integrated production stack for portfolio, chat service, and MySQL.
 - `.github/workflows/deploy.yml`: self-hosted runner deployment on the production server.
 
 Important constraints:
@@ -20,4 +20,3 @@ Important constraints:
 - Do not expose API keys, TLS private keys, or `.env` values to the browser or Git.
 - Do not rebuild `chat-service` on every frontend-only deploy unless backend files changed.
 - Blog content editing is out of scope unless the user explicitly asks for content changes.
-

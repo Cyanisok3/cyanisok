@@ -1,0 +1,5 @@
+.git
+build
+tests/docker-compose.smoke.yml
+tests/mock_ai_server.py
+tests/smoke.sh

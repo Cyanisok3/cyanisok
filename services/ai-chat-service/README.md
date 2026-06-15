@@ -5,7 +5,10 @@
 This is a C++-based HTTP server framework with built-in AI capabilities. The project consists of two main components:
 
 - **HttpServer**: A lightweight, high-performance HTTP server framework featuring routing, middleware, sessions, and SSL support
-- **AIApps/ChatServer**: An API-only chat service built on top of HttpServer, integrating with Alibaba Cloud's DashScope AI API, ONNX image recognition, MySQL, and RabbitMQ. In the integrated portfolio deployment, this service is a backend API only; the user-facing UI lives in the Next.js portfolio `/chat` route.
+- **AIApps/ChatServer**: An API-only chat service built on top of HttpServer,
+  integrating DashScope, optional ONNX image recognition, and direct MySQL
+  persistence. The user-facing UI lives in the Next.js portfolio `/chat`
+  route.
 
 ## Architecture
 
@@ -46,7 +49,6 @@ CppAIService/
 | Service | Image | Purpose |
 |---------|-------|---------|
 | MySQL | mysql:8.0 | User data and chat message storage |
-| RabbitMQ | rabbitmq:3-management | Async message queue for database operations |
 
 ### Environment Variables
 
@@ -61,9 +63,8 @@ Required variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DASHSCOPE_API_KEY` | Alibaba Cloud DashScope API Key | Required |
-| `MYSQL_PASSWORD` | MySQL root password | 123456 |
-| `RABBITMQ_USER` | RabbitMQ username | guest |
-| `RABBITMQ_PASS` | RabbitMQ password | guest |
+| `MYSQL_PASSWORD` | Application database password | Required |
+| `MYSQL_ROOT_PASSWORD` | MySQL administrative password | Required |
 
 ## Build & Run
 
@@ -71,10 +72,10 @@ All builds and runs are performed using **Docker Compose**.
 
 ### 1. Start Infrastructure Services
 
-Start MySQL and RabbitMQ:
+Start MySQL:
 
 ```bash
-docker-compose up -d mysql rabbitmq
+docker compose up -d mysql
 ```
 
 ### 2. Build & Run Application
@@ -123,6 +124,13 @@ To also remove volumes (database data):
 docker-compose down -v
 ```
 
+### 6. Run Tests
+
+```bash
+ctest --test-dir build --output-on-failure
+./tests/smoke.sh
+```
+
 ## Application Routes
 
 | Method | Path | Description |
@@ -133,7 +141,8 @@ docker-compose down -v
 | POST | `/chat/send` | Stream AI chat response via Server-Sent Events |
 | POST | `/chat/history` | Get chat history |
 | POST | `/upload/send` | Upload and recognize image |
-| GET | `/health` | Health check |
+| GET | `/health` | Process liveness |
+| GET | `/ready` | Database and AI configuration readiness |
 
 ## Key Features
 
@@ -142,7 +151,8 @@ docker-compose down -v
 - User registration and login with session-based authentication
 - Streaming chat with Alibaba Cloud DashScope AI (Qwen model)
 - Persistent chat history stored in MySQL
-- Async database writes via RabbitMQ for better performance
+- Direct, ordered MySQL persistence with bounded AI execution
+- Recent-message context loaded from MySQL for each request
 
 ### Image Recognition
 
@@ -154,7 +164,7 @@ docker-compose down -v
 - **Reactor Pattern**: Built on muduo network library for high-performance I/O
 - **Middleware Chain**: Extensible middleware for cross-cutting concerns
 - **Connection Pooling**: MySQL connection pool for efficient database access
-- **Message Queue**: RabbitMQ for async operations and traffic smoothing
+- **Bounded concurrency**: Fixed AI workers, bounded queue, and one active chat per user
 
 ## Third-Party Dependencies
 
@@ -165,7 +175,6 @@ docker-compose down -v
 | OpenSSL | system | SSL/TLS encryption |
 | nlohmann/json | 3.x | JSON parsing |
 | MySQL Connector/C++ | system | MySQL database driver |
-| SimpleAmqpClient | latest | RabbitMQ client |
 | ONNX Runtime | 1.16.3 | Image classification |
 | OpenCV | system | Image processing |
 | libcurl | system | HTTP client for AI API calls |
@@ -189,7 +198,7 @@ HttpServer/
 ```
 AIApps/ChatServer/
 ├── include/handlers/       # Request handlers (Login, Chat, Upload, etc.)
-├── include/AIUtil/         # AIHelper, ImageRecognizer, MQManager
+├── include/AIUtil/         # AIHelper, ImageRecognizer, BoundedExecutor
 └── src/                   # Implementation files
 ```
 
@@ -204,7 +213,6 @@ Check if ports are already in use:
 ```bash
 lsof -i :8080
 lsof -i :3306
-lsof -i :5672
 ```
 
 ### Database connection issues

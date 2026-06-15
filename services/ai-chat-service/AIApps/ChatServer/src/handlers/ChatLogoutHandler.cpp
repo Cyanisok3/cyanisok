@@ -5,17 +5,9 @@ void ChatLogoutHandler::handle(const http::HttpRequest& req, http::HttpResponse*
     try
     {
         auto session = server_->getSessionManager()->getSession(req, resp);
-        std::string userIdValue = session->getValue("userId");
-        int userId = userIdValue.empty() ? -1 : std::stoi(userIdValue);
         session->clear();
         server_->getSessionManager()->destroySession(session->getId());
         server_->getSessionManager()->clearSessionCookie(resp);
-
-        if (userId != -1)
-        {
-            std::lock_guard<std::mutex> lock(server_->mutexForOnlineUsers_);
-            server_->onlineUsers_.erase(userId);
-        }
 
         json response;
         response["message"] = "logout successful";

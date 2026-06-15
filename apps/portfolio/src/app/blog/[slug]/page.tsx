@@ -8,6 +8,7 @@ import { mdxComponents } from "@/mdx-components";
 import { TableOfContents } from "@/components/blog/table-of-contents";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { resolveSiteUrl } from "@/lib/urls";
 
 function getSortedPosts() {
   return [...allPosts].sort((a, b) => {
@@ -57,7 +58,7 @@ export async function generateMetadata({
       ...(image && {
         images: [
           {
-            url: `${DATA.url}${image}`,
+            url: resolveSiteUrl(image, DATA.url),
           },
         ],
       }),
@@ -67,7 +68,7 @@ export async function generateMetadata({
       title,
       description,
       ...(image && {
-        images: [`${DATA.url}${image}`],
+        images: [resolveSiteUrl(image, DATA.url)],
       }),
     },
   };
@@ -107,7 +108,7 @@ export default async function Blog({
     dateModified: post.publishedAt,
     description: post.summary,
     image: post.image
-      ? `${DATA.url}${post.image}`
+      ? resolveSiteUrl(post.image, DATA.url)
       : `${DATA.url}/blog/${slug}/opengraph-image`,
     url: `${DATA.url}/blog/${slug}`,
     author: {

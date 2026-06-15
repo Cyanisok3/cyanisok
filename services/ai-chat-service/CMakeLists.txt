@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(MultiApps)
 
+include(CTest)
+
 option(BUILD_AI_APPS "Build AI Apps" ON)
 option(BUILD_WEB_APPS "Build Web Apps" OFF)
 

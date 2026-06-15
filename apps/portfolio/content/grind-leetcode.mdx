@@ -22,7 +22,7 @@ For the time complexity, it's usually not easy to 'only-look-once'. In our lectu
 
 ## Arrays: Initialization & Basic Operations
 
-### Typical Array
+### Typical Arrays
 
 ```cpp
 int arr[5]; // fill in with 0s by default
@@ -33,7 +33,7 @@ arr[0] = 10;
 int x = arr[1];
 ```
 
-### 1D Vector
+### 1D Vectors
 
 ```cpp
 #include <vector>
@@ -229,7 +229,7 @@ It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll 
 I won't provide code snippets here since the idea is similar.
 
 
-## Hash Table
+## Hash Tables
 
 Hash table is known as a super effient data structure in terms of searching, deleting or inserting an element.
 
@@ -248,7 +248,7 @@ unordered_set<int> set;
 unordered_map<int, int> map;
 ```
 
-CRUD:
+**CRUD**:
 
 ```cpp
 // create (insert)
@@ -290,4 +290,40 @@ unordered_map<string, char> s2p;
 if (s2p.count(cword) && s2p[cword] != ch) return false;
 if (p2s.count(ch) && p2s[ch] != cword) return false;
 ```
-where ch and cword are elements of the strings `pattern` and `s`, respectively.
+where `ch` and `cword` are elements of the strings `pattern` and `s`, respectively.
+
+### Use Cases: Sort() and Traversal
+
+There are times when we need to sort the target array in a certain order (normally non-decreasing in LeetCode):
+
+```cpp
+sort(str.begin(), str.end());
+```
+
+This simple line of code will just sort the `str` in non-decreasing order, but notice that for an nested array like `[[1,6],[2,8],[3,4]]`, it will first compare the leftmost element in each element list (e.g. `1` in `[1,6]`) and then the second and so on...
+
+But what about we need to customize the comparison criteria - the answer is an embedded lambda function, for instance:
+
+```cpp
+sort(points.begin(), points.end(), [](const vector<int>& u, const vector<int>& v) {
+    return u[1] < v[1];
+});
+```
+
+This means that the comparing process will initially compare the second element in each `vector` element. For the syntax, `[]` is like noting that it's followed by a lambda expression, and the two `const vector<int>&` are set for two temporary containers in `vector<int>` to receive the `[1,6]`, `[2,8]`, etc..
+
+We usually traverse the hash table with an iterator in the form of:
+
+```cpp
+unordered_map<string, int> pos;
+string str;
+auto it = pos.find(str);
+if (it == pos.end()) {} // means that if str exists in the pos
+```
+
+Based on this, we can visit the value of the target string in the hash table correspondingly, such as: `pos[it->second]`.
+
+
+## Intervals
+
+In LeetCode, the intervals are usually in the form of `vector<int>` with only two elements to indicate the start and the end. Beyond this, a `vector<vector<int>>` is given by the problems to store the intervals as elements.

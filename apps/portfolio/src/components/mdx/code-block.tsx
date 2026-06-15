@@ -11,16 +11,11 @@ import {
 } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "../ui/button";
-import { codeToHtml } from "shiki/bundle/web";
+import { bundledLanguages, codeToHtml } from "shiki/bundle/full";
 import { cn } from "@/lib/utils";
+import { resolveCodeLanguage } from "@/lib/code-language";
 
 type CodeBlockProps = ComponentProps<"pre">;
-
-function extractLanguage(className?: string): string {
-  if (!className) return "plaintext";
-  const match = className.match(/language-([a-z0-9-]+)/i);
-  return match ? match[1] : "plaintext";
-}
 
 function getTextContent(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -80,7 +75,7 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const lang = extractLanguage(className);
+    const lang = resolveCodeLanguage(className, bundledLanguages);
 
     void codeToHtml(codeText, {
       lang: lang as any,
@@ -100,10 +95,8 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
           signature: highlightSignature,
         });
       })
-      .catch((error) => {
+      .catch(() => {
         if (cancelled) return;
-
-        console.error("Failed to highlight code:", error);
         setHighlight({
           html: "",
           signature: highlightSignature,

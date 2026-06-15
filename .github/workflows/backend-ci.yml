@@ -1,0 +1,86 @@
+name: Backend CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, dev]
+    paths:
+      - "services/ai-chat-service/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "services/ai-chat-service/**"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            git \
+            libboost-dev \
+            libcurl4-openssl-dev \
+            libmysqlclient-dev \
+            libmysqlcppconn-dev \
+            libopencv-core-dev \
+            libopencv-dnn-dev \
+            libopencv-imgcodecs-dev \
+            libopencv-imgproc-dev \
+            libssl-dev \
+            nlohmann-json3-dev \
+            wget
+
+      - name: Install ONNX Runtime
+        run: |
+          cd /tmp
+          archive="onnxruntime-linux-x64-1.16.3.tgz"
+          wget -q "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/$archive"
+          tar -xzf "$archive"
+          sudo cp -r onnxruntime-linux-x64-1.16.3/include/* /usr/local/include/
+          sudo cp onnxruntime-linux-x64-1.16.3/lib/* /usr/local/lib/
+          sudo ldconfig
+
+      - name: Build and install muduo
+        run: |
+          cd /tmp
+          git clone --depth 1 https://github.com/chenshuo/muduo.git
+          cd muduo
+          sed -i 's/-Werror//g' CMakeLists.txt
+          cmake -S . -B build
+          cmake --build build --parallel
+          sudo cmake --install build
+          sudo ldconfig
+
+      - name: Configure backend
+        run: |
+          cmake \
+            -S services/ai-chat-service \
+            -B services/ai-chat-service/build \
+            -DBUILD_AI_APPS=ON \
+            -DBUILD_WEB_APPS=OFF
+
+      - name: Build backend
+        run: cmake --build services/ai-chat-service/build --parallel
+
+      - name: Run backend tests
+        run: ctest --test-dir services/ai-chat-service/build --output-on-failure
+
+      - name: Upload backend executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-chat-service
+          path: services/ai-chat-service/build/http_server
+          retention-days: 7

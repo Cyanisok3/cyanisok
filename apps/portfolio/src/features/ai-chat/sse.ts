@@ -1,7 +1,7 @@
 import { API_ROOT, readJson } from "./api";
 import type { ApiError, ChatResponse } from "./types";
 
-function parseSseEvent(block: string) {
+export function parseSseEvent(block: string) {
   let event = "message";
   const dataLines: string[] = [];
 
@@ -51,6 +51,7 @@ export async function sendStreamingChat(
   const decoder = new TextDecoder();
   let buffer = "";
   let finalContent = "";
+  let completed = false;
 
   function processBuffer(flush = false) {
     const normalized = buffer.replace(/\r\n/g, "\n");
@@ -75,6 +76,7 @@ export async function sendStreamingChat(
         onDelta(content);
       } else if (event === "done") {
         finalContent = payload.content ?? finalContent;
+        completed = true;
       } else if (event === "error") {
         throw new Error(payload.message || "AI stream failed");
       }
@@ -93,6 +95,10 @@ export async function sendStreamingChat(
       processBuffer(true);
       break;
     }
+  }
+
+  if (!completed) {
+    throw new Error("AI chat stream ended before completion");
   }
 
   return finalContent;

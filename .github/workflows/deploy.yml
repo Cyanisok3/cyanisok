@@ -16,18 +16,142 @@ jobs:
     runs-on: [self-hosted, linux, x64, cyanisok]
 
     steps:
-      - name: Deploy locally
+      - name: Detect, build, and deploy changed services
+        env:
+          FORCE_DEPLOY_ALL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
 
           cd /home/ubuntu/cyanisok
-
           git fetch origin dev
+
+          deployed_ref="refs/cyanisok/deployed/dev"
+          baseline_available=true
+          if git rev-parse --verify "$deployed_ref" >/dev/null 2>&1; then
+            before="$(git rev-parse "$deployed_ref")"
+          else
+            before="$(git rev-parse HEAD)"
+            baseline_available=false
+          fi
+          after="$(git rev-parse origin/dev)"
+
+          frontend=false
+          backend=false
+          compose_stack=false
+          nginx=false
+          force_all=false
+
+          if [[ "$baseline_available" == "false" ]] ||
+             ! git cat-file -e "$before^{commit}" 2>/dev/null ||
+             ! git merge-base --is-ancestor "$before" "$after"; then
+            echo "Deployment baseline is unavailable or not an ancestor; deploying all services."
+            force_all=true
+            changed=""
+          else
+            changed="$(git diff --name-only "$before" "$after")"
+          fi
+
+          if [[ "$FORCE_DEPLOY_ALL" == "true" || "$force_all" == "true" ]]; then
+            frontend=true
+            backend=true
+            compose_stack=true
+            nginx=true
+          else
+            if grep -q '^apps/portfolio/' <<<"$changed"; then
+              frontend=true
+            fi
+            if grep -q '^services/ai-chat-service/' <<<"$changed"; then
+              backend=true
+            fi
+            if grep -q '^docker-compose\.yml$' <<<"$changed"; then
+              compose_stack=true
+            fi
+            if grep -q '^deploy/nginx/' <<<"$changed"; then
+              nginx=true
+            fi
+          fi
+
           git checkout dev
           git reset --hard origin/dev
-
           docker compose config --quiet
-          docker compose build portfolio-web
-          docker compose rm -sf portfolio-web
-          docker compose up -d --no-deps portfolio-web
+
+          if [[ "$frontend" == "false" &&
+                "$backend" == "false" &&
+                "$compose_stack" == "false" &&
+                "$nginx" == "false" ]]; then
+            echo "No deployable files changed."
+            git update-ref "$deployed_ref" "$after"
+            exit 0
+          fi
+
+          if [[ "$compose_stack" == "true" ]]; then
+            docker compose build portfolio-web chat-service
+            docker compose up -d --remove-orphans mysql chat-service portfolio-web
+          else
+            if [[ "$backend" == "true" ]]; then
+              docker compose build chat-service
+              docker compose up -d --no-deps chat-service
+            fi
+            if [[ "$frontend" == "true" ]]; then
+              docker compose build portfolio-web
+              docker compose up -d --no-deps portfolio-web
+            fi
+          fi
+
+          if [[ "$backend" == "true" || "$compose_stack" == "true" ]]; then
+            for attempt in {1..30}; do
+              status="$(docker inspect --format='{{.State.Health.Status}}' cyanisok-ai-chat-service 2>/dev/null || true)"
+              if [[ "$status" == "healthy" ]]; then
+                break
+              fi
+              if [[ "$status" == "unhealthy" || "$attempt" == "30" ]]; then
+                docker compose logs --tail=200 chat-service
+                exit 1
+              fi
+              sleep 2
+            done
+          fi
+
+          if [[ "$frontend" == "true" || "$compose_stack" == "true" ]]; then
+            for attempt in {1..30}; do
+              if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+                break
+              fi
+              if [[ "$attempt" == "30" ]]; then
+                docker compose logs --tail=200 portfolio-web
+                exit 1
+              fi
+              sleep 2
+            done
+          fi
+
+          if [[ "$nginx" == "true" ]]; then
+            nginx_source="deploy/nginx/cyanisok.host.conf"
+            nginx_target="/www/server/panel/vhost/nginx/cyanisok.cn.conf"
+            nginx_backup="/tmp/cyanisok-nginx-backup.$$"
+            had_nginx_config=false
+
+            if sudo test -f "$nginx_target"; then
+              sudo cp "$nginx_target" "$nginx_backup"
+              had_nginx_config=true
+            fi
+
+            sudo install -m 0644 "$nginx_source" "$nginx_target"
+            if ! sudo nginx -t; then
+              if [[ "$had_nginx_config" == "true" ]]; then
+                sudo install -m 0644 "$nginx_backup" "$nginx_target"
+              else
+                sudo rm -f "$nginx_target"
+              fi
+              sudo rm -f "$nginx_backup"
+              sudo nginx -t || true
+              exit 1
+            fi
+
+            sudo systemctl reload nginx
+            sudo rm -f "$nginx_backup"
+            curl -kfsS https://127.0.0.1 -H "Host: cyanisok.cn" >/dev/null
+          fi
+
           docker compose ps
+          git update-ref "$deployed_ref" "$after"

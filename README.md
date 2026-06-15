@@ -23,13 +23,16 @@ Create the root environment file:
 cp .env.example .env
 ```
 
-Set `DASHSCOPE_API_KEY`, then start the full stack from the repository root:
+Set `DASHSCOPE_API_KEY`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD`, then
+start the full stack from the repository root:
 
 ```bash
 docker compose up --build
 ```
 
-The portfolio is exposed at `http://localhost:3000`. In production, the server's host Nginx or Baota panel should reverse proxy `cyanisok.cn` to `http://127.0.0.1:3000`. The C++ chat service, MySQL, and RabbitMQ stay on the internal Docker network by default.
+The portfolio is exposed at `http://127.0.0.1:3000`. In production, the
+server's host Nginx or Baota panel should reverse proxy `cyanisok.cn` to that
+address. The C++ chat service and MySQL stay on the internal Docker network.
 
 For production HTTPS, place the domain certificate files in the repository root on the server and configure the host Nginx server block to use them:
 
