@@ -119,7 +119,7 @@ export default function Navbar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <DockIcon className={navIconClassName}>
-              <ModeToggle className="size-full cursor-pointer" />
+              <ModeToggle className="absolute inset-0 z-10 size-full cursor-pointer [&>svg]:h-1/2 [&>svg]:w-1/2" />
             </DockIcon>
           </TooltipTrigger>
           <TooltipContent
