@@ -99,6 +99,22 @@ jobs:
 
           docker compose config --quiet
 
+          wait_for_health() {
+            local container="$1"
+            local service="$2"
+            for attempt in {1..30}; do
+              status="$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || true)"
+              if [[ "$status" == "healthy" ]]; then
+                return 0
+              fi
+              if [[ "$status" == "unhealthy" || "$attempt" == "30" ]]; then
+                docker compose logs --tail=200 "$service"
+                return 1
+              fi
+              sleep 2
+            done
+          }
+
           if [[ "$frontend" == "false" &&
                 "$backend" == "false" &&
                 "$compose_stack" == "false" &&
@@ -110,9 +126,13 @@ jobs:
 
           if [[ "$compose_stack" == "true" ]]; then
             docker compose build portfolio-web chat-service
-            docker compose up -d --remove-orphans mysql chat-service portfolio-web
+            docker compose up -d --remove-orphans mysql
+            wait_for_health cyanisok-ai-chat-mysql mysql
+            docker compose up -d --remove-orphans chat-service portfolio-web
           else
             if [[ "$backend" == "true" ]]; then
+              docker compose up -d mysql
+              wait_for_health cyanisok-ai-chat-mysql mysql
               docker compose build chat-service
               docker compose up -d --no-deps chat-service
             fi
@@ -123,17 +143,7 @@ jobs:
           fi
 
           if [[ "$backend" == "true" || "$compose_stack" == "true" ]]; then
-            for attempt in {1..30}; do
-              status="$(docker inspect --format='{{.State.Health.Status}}' cyanisok-ai-chat-service 2>/dev/null || true)"
-              if [[ "$status" == "healthy" ]]; then
-                break
-              fi
-              if [[ "$status" == "unhealthy" || "$attempt" == "30" ]]; then
-                docker compose logs --tail=200 chat-service
-                exit 1
-              fi
-              sleep 2
-            done
+            wait_for_health cyanisok-ai-chat-service chat-service
           fi
 
           if [[ "$frontend" == "true" || "$compose_stack" == "true" ]]; then
