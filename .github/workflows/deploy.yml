@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Detect, build, and deploy changed services
         env:
+          COMPOSE_DOCKER_CLI_BUILD: "1"
+          DOCKER_BUILDKIT: "1"
           FORCE_DEPLOY_ALL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
