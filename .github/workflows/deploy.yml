@@ -73,6 +73,30 @@ jobs:
 
           git checkout dev
           git reset --hard origin/dev
+
+          if [[ ! -f .env ]]; then
+            echo "::error file=.env::Missing /home/ubuntu/cyanisok/.env. Copy .env.example to .env on the server and replace all placeholder secrets."
+            exit 1
+          fi
+
+          missing_environment=false
+          for key in DASHSCOPE_API_KEY MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+            value="$(sed -n "s/^${key}=//p" .env | tail -n 1)"
+            if [[ -z "$value" ]]; then
+              echo "::error file=.env::Missing required value: $key"
+              missing_environment=true
+            fi
+          done
+
+          if grep -Eq '^(DASHSCOPE_API_KEY=your_|MYSQL_PASSWORD=change-me$|MYSQL_ROOT_PASSWORD=change-root-password$)' .env; then
+            echo "::error file=.env::Production .env still contains placeholder credentials."
+            missing_environment=true
+          fi
+
+          if [[ "$missing_environment" == "true" ]]; then
+            exit 1
+          fi
+
           docker compose config --quiet
 
           if [[ "$frontend" == "false" &&

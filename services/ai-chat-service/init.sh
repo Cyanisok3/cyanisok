@@ -1,9 +1,22 @@
--- Database initialization script for CppAIService
--- This script creates the necessary tables for the ChatServer
+#!/bin/bash
+set -e
 
-USE chatserver;
+case "${MYSQL_DATABASE:-}" in
+  ""|*[!A-Za-z0-9_]*)
+    echo "MYSQL_DATABASE must contain only letters, numbers, and underscores" >&2
+    exit 1
+    ;;
+esac
 
--- Users table for authentication
+mysql=(mysql --protocol=socket -uroot -p"${MYSQL_ROOT_PASSWORD}")
+
+"${mysql[@]}" <<EOSQL
+CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE \`${MYSQL_DATABASE}\`;
+
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
@@ -12,7 +25,6 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Chat messages table
 CREATE TABLE IF NOT EXISTS chat_message (
     message_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -24,5 +36,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
     INDEX idx_user_id (user_id),
     INDEX idx_username (username),
     INDEX idx_ts (ts),
-    CONSTRAINT fk_chat_message_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_chat_message_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+EOSQL

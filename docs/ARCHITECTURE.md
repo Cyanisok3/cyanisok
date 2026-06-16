@@ -45,7 +45,7 @@ https://cyanisok.cn
         ├── AIApps/ChatServer/
         ├── HttpServer/
         ├── Dockerfile
-        ├── init.sql
+        ├── init.sh
         └── .env.example
 ```
 
@@ -259,7 +259,7 @@ Operational implication:
 Schema initialization:
 
 ```text
-services/ai-chat-service/init.sql
+services/ai-chat-service/init.sh
 ```
 
 Current tables:
@@ -447,6 +447,23 @@ docker compose ps
 Failed or cancelled deployments do not advance the deployment baseline. The next
 run therefore includes every change since the last healthy release.
 
+Before building, the workflow requires a server-local file:
+
+```text
+/home/ubuntu/cyanisok/.env
+```
+
+At minimum it must contain non-placeholder values for:
+
+```text
+DASHSCOPE_API_KEY
+MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD
+```
+
+This file is ignored by Git and is not created from `.env.example`
+automatically.
+
 Backend CI is defined at:
 
 ```text
@@ -474,6 +491,11 @@ docker compose up --build
 ```
 
 For the integrated stack, the public entry is the Next.js app on port `3000`.
+
+When an existing `mysql_data` volume is retained, changing MySQL credentials in
+`.env` does not rotate the users already stored inside MySQL. Update the
+database users first, or deliberately recreate the volume only when its data is
+confirmed disposable.
 
 ## Production Checks
 
