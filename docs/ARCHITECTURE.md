@@ -511,7 +511,7 @@ Nginx checks:
 
 ```text
 sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl reload nginx || sudo nginx -s reload
 ```
 
 Local-on-server HTTPS check:

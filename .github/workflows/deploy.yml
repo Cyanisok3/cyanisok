@@ -115,6 +115,16 @@ jobs:
             done
           }
 
+          reload_nginx() {
+            if command -v systemctl >/dev/null 2>&1 &&
+               sudo systemctl is-active --quiet nginx; then
+              sudo systemctl reload nginx
+              return
+            fi
+
+            sudo nginx -s reload
+          }
+
           if [[ "$frontend" == "false" &&
                 "$backend" == "false" &&
                 "$compose_stack" == "false" &&
@@ -182,7 +192,17 @@ jobs:
               exit 1
             fi
 
-            sudo systemctl reload nginx
+            if ! reload_nginx; then
+              if [[ "$had_nginx_config" == "true" ]]; then
+                sudo install -m 0644 "$nginx_backup" "$nginx_target"
+              else
+                sudo rm -f "$nginx_target"
+              fi
+              sudo nginx -t || true
+              reload_nginx || true
+              sudo rm -f "$nginx_backup"
+              exit 1
+            fi
             sudo rm -f "$nginx_backup"
             curl -kfsS https://127.0.0.1 -H "Host: cyanisok.cn" >/dev/null
           fi
