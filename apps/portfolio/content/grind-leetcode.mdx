@@ -182,11 +182,11 @@ public:
 };
 ```
 
-It's obvious that a matrix takes up too much space, but there are many tricks to make the most of it, let alone that sometimes the problem may require us to implement a O(1) in-place algorithm. You might find examples in LeetCode.73 & LeetCode.289:
+It's obvious that a matrix takes up too much space, but there are many tricks to make the most of it, let alone that sometimes the problem may require us to implement a **O(1) in-place algorithm**. You might find examples in LeetCode.73 & LeetCode.289:
 
 In LeetCode 73, if any element in a **given matrix** is located in a **row or column** that contains a zero, we must set that element to zero as well. 
 
-Being aware that all the elements in relavant rows or columns will be set to zero if there exists at least one zero there, we can traverse all the elements in the matrix and set the first element in the row & column to zero. In this way, when we make the modification altogether after the first traversal, it won't affect other elements when overwriting. Notice that the first row is under the charge of ```matrix[0][0]```, but what about the first column if there was zero element among them - that's why we maintain a flag_col0 here - if there exists zero in the first column, we set it true:
+Being aware that all the elements in relavant rows or columns will be set to zero if there exists at least one zero there, we can traverse all the elements in the matrix and set the first element in the row & column to zero. In this way, when we make the modification altogether after the first traversal, it won't affect other elements when overwriting. Notice that the first row is under the charge of `matrix[0][0]`, but what about the first column if there was zero element among them - that's why we maintain a `flag_col0` here - if there exists zero in the first column, we set it true:
 
 ```cpp
 for (int i = 0; i < m; ++i) {
@@ -201,7 +201,7 @@ for (int i = 0; i < m; ++i) {
 }
 ```
 
-Then we can freely update the matrix, but one more thing is - since we use the first element in each column as the flags, we cannot traverse from the first row - it will overwrite them! Such that we'll just traverse from the last row:
+Then we can freely update the matrix, but one more thing is - since we use the first element in each column as the flags, **we cannot traverse from the first row** - it will overwrite them! Such that we'll just traverse from the last row:
 
 ```cpp
 for (int i = m - 1; i >= 0; --i) {
@@ -229,7 +229,7 @@ It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll 
 I won't provide code snippets here since the idea is similar.
 
 
-## Hash Tables
+## Hash Table
 
 Hash table is known as a super effient data structure in terms of searching, deleting or inserting an element.
 
@@ -276,7 +276,7 @@ set.erase(key);
 map.erase(key);
 ```
 
-If you aim at time effiency, it's almost the 1st choice - taking space as a payoff, though. For the use of `unordered_map`, it's true that it represents a mapping relationship, but only one-way from key to value. This is because the hash table is efficient only when you search for keys (their uniqueness), and its values can be same.
+If you aim at time effiency, it's almost the 1st choice - taking space as a payoff, though. For the use of `unordered_map`, it's true that it represents a mapping relationship, but **only one-way from key to value**. This is because the hash table is efficient only when you search for keys (their uniqueness), and its values can be same.
 Relavant ideas can be found in LeetCode.290:
 
 When `pattern = "abba"`, `s = "dog cat cat dog"`, you need to determine if they match each other...
@@ -292,25 +292,7 @@ if (p2s.count(ch) && p2s[ch] != cword) return false;
 ```
 where `ch` and `cword` are elements of the strings `pattern` and `s`, respectively.
 
-### Use Cases: Sort() and Traversal
-
-There are times when we need to sort the target array in a certain order (normally non-decreasing in LeetCode):
-
-```cpp
-sort(str.begin(), str.end());
-```
-
-This simple line of code will just sort the `str` in non-decreasing order, but notice that for an nested array like `[[1,6],[2,8],[3,4]]`, it will first compare the leftmost element in each element list (e.g. `1` in `[1,6]`) and then the second and so on...
-
-But what about we need to customize the comparison criteria - the answer is an embedded lambda function, for instance:
-
-```cpp
-sort(points.begin(), points.end(), [](const vector<int>& u, const vector<int>& v) {
-    return u[1] < v[1];
-});
-```
-
-This means that the comparing process will initially compare the second element in each `vector` element. For the syntax, `[]` is like noting that it's followed by a lambda expression, and the two `const vector<int>&` are set for two temporary containers in `vector<int>` to receive the `[1,6]`, `[2,8]`, etc..
+### Using Iterator for Traversal
 
 We usually traverse the hash table with an iterator in the form of:
 
@@ -327,3 +309,121 @@ Based on this, we can visit the value of the target string in the hash table cor
 ## Intervals
 
 In LeetCode, the intervals are usually in the form of `vector<int>` with only two elements to indicate the start and the end. Beyond this, a `vector<vector<int>>` is given by the problems to store the intervals as elements.
+
+There are times when we need to sort the target array in a certain order (normally non-decreasing in LeetCode):
+
+```cpp
+sort(str.begin(), str.end());
+```
+
+This simple line of code will just sort the `str` in non-decreasing order, but notice that for an interval like `[[1,6],[2,8],[3,4]]`, it will first compare the leftmost element in each element list (e.g. `1` in `[1,6]`) and then the second and so on...
+
+But what about we need to customize the comparison criteria - the answer is an embedded lambda function, for instance:
+
+```cpp
+sort(points.begin(), points.end(), [](const vector<int>& u, const vector<int>& v) {
+    return u[1] < v[1];
+});
+```
+
+This means that the comparing process will initially compare the second element in each `vector` element. For the syntax, `[]` is to note that it is followed by a lambda expression, and the two `const vector<int>&` are set for two temporary containers in `vector<int>` to receive the `[1,6]`, `[2,8]`, etc..
+
+In LeetCode.452, this sorting technique is applied in a very clever way. The problem is aiming to pop the balloons using the fewest number of arrows, in this context, **the balloons are actually the intervals** and the so-called "arrows" are like counters that appear in overlapping intervals (but notice that each interval can be only counted once).
+
+Here, we sort these balloons according to their right endpoints (as the code provided above), then we maintain a variable `pos` to record the right endpoint of the current interval we're looking at. We'll start at the leftmost interval and check **how many intervals overlap with it** (normal traversal order), once we encounter one that can't overlap, we update the `pos` and increase the number of "arrows":
+
+```cpp
+int ans = 1;
+int pos = points[0][1]; // flag the right endpoint of the first interval
+for(int i = 0; i < points.size(); i++) {
+    if(points[i][0] > pos) {
+        ans++;
+        pos = points[i][1];
+    }
+}
+```
+
+
+## Stack
+
+The `stack<int> st;` in C++ is mainly designed for semantic constraints, normally we can see people using `vector<int> stack;`, which also works well - but is not in secure encapsulation, meaning that all the values inside can be modified in a way that violates the concept of stack.
+
+### LeetCode.224 Basic Calculator (with * & /)
+
+```cpp
+class Solution {
+public:
+    int calculate(string s) {
+        string t;
+        for (char c : s) { // preprocess the string, add 0 before the unary operators
+            if (c == '+') {
+                if (t.empty() || t.back() == '(') t += "0+";
+                else t.push_back(c);
+            }  else if (c == '-') {
+                if (t.empty() || t.back() == '(') t += "0-";
+                else t.push_back(c);
+            } else if (c != ' ') {
+                t.push_back(c);
+            }
+        }
+        s = t;
+        s.insert(s.begin(), '(');
+        s.push_back(')');
+        int n = s.size();
+        unordered_map<char, int> priority{{'(', 0}, {'+', 1}, {'-', 1}, {'*', 2}, {'/', 2}};
+        stack<long> nums;
+        stack<char> op;
+        long num = 0;
+        auto isOperator = [](char c) {
+            return c == '-' || c == '+' || c == '*' || c == '/';
+        };
+
+        auto calc = [](long num1, long num2, char op) -> long {
+            if (op == '+') {
+                return num1 + num2;
+            } else if (op == '-') {
+                return num1 - num2;
+            } else if (op == '*') {
+                return num1 * num2;
+            } else if (op == '/') {
+                return num1 / num2;
+            } else {
+                return 0;
+            }
+        };
+
+        for (int i = 0; i < n; ++i) {
+            char c = s[i];
+            if (isdigit(c)) {
+                while (i < n && isdigit(s[i])) {
+                    num = (s[i] - '0')  + num * 10;
+                    ++i;
+                }
+                --i;
+                nums.push(num);
+                num = 0;
+            } else if (isOperator(c)) {
+                while (!op.empty() && priority[c] <= priority[op.top()]) {
+                    int num2 = nums.top(); nums.pop();
+                    int num1 = nums.top(); nums.pop();
+                    char opt = op.top(); op.pop();
+                    nums.push(calc(num1, num2, opt));
+                }
+                op.push(c);
+            } else if (c == ')') {
+                while (!op.empty() && op.top() != '(') {
+                    int num2 = nums.top(); nums.pop();
+                    int num1 = nums.top(); nums.pop();
+                    char opt = op.top(); op.pop();
+                    nums.push(calc(num1, num2, opt));
+                }
+                op.pop();
+            } else if (c == '(') {
+                op.push(c);
+            }
+        }
+
+        return nums.top();
+    }
+};
+```
