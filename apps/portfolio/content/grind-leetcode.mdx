@@ -348,7 +348,21 @@ for(int i = 0; i < points.size(); i++) {
 
 The `stack<int> st;` in C++ is mainly designed for semantic constraints, normally we can see people using `vector<int> stack;`, which also works well - but is not in secure encapsulation, meaning that all the values inside can be modified in a way that violates the concept of stack.
 
-### LeetCode.224 Basic Calculator (with * & /)
+### LeetCode.224 Basic Calculator (with *, /)
+
+The solution provided below applies a classic double-stack strategy, one for storing the numbers (digits), one for the operators. But considering that there might be unary operators in the given string (such as `-3`, `+5`), we'll add a `0` before them to make them binary operators at the very beginning.
+
+After that, we maintain a `priority` hash table in `unoredered_map<char, int>` to record the precedence level for each operator, which ensures `*` and `/` take higher priority than `+` and `-` inherently.
+
+The isOperator and calc are embeded functions in lambda expression.
+
+Lastly, we traverse the string and check if the current character is a digit or an operator or a bracket:
+- if it's a digit, we go on to check and piece all the continuous digits together into the `num` and store it into the stack `nums`.
+- if it's an operator, we should check if its priority is higher than these stored in the stack `op`, if not, we finish all these caculation and then push it into the stack. This can ensure all the operators stored in the stack are in a order that strictly follows the priority rule.
+- if it's a `(`, we just directly push it into the stack `op`.
+- if a `)` appears, we finish all the calculation in the stack `op` and pop out the `(` in the end.
+
+Consequently, the element at the top of the stack `nums` in the final state should be the calculator's result.
 
 ```cpp
 class Solution {
@@ -373,12 +387,12 @@ public:
         unordered_map<char, int> priority{{'(', 0}, {'+', 1}, {'-', 1}, {'*', 2}, {'/', 2}};
         stack<long> nums;
         stack<char> op;
-        long num = 0;
+        long num = 0; // use long type to avoid overflow (for extreme test cases)
         auto isOperator = [](char c) {
             return c == '-' || c == '+' || c == '*' || c == '/';
         };
 
-        auto calc = [](long num1, long num2, char op) -> long {
+        auto calc = [](long num1, long num2, char op) -> long { // embedded lambda function for calculation
             if (op == '+') {
                 return num1 + num2;
             } else if (op == '-') {
@@ -394,7 +408,7 @@ public:
 
         for (int i = 0; i < n; ++i) {
             char c = s[i];
-            if (isdigit(c)) {
+            if (isdigit(c)) { // normally piece together and push the number into the stack
                 while (i < n && isdigit(s[i])) {
                     num = (s[i] - '0')  + num * 10;
                     ++i;
@@ -404,16 +418,16 @@ public:
                 num = 0;
             } else if (isOperator(c)) {
                 while (!op.empty() && priority[c] <= priority[op.top()]) {
-                    int num2 = nums.top(); nums.pop();
-                    int num1 = nums.top(); nums.pop();
+                    long num2 = nums.top(); nums.pop();
+                    long num1 = nums.top(); nums.pop();
                     char opt = op.top(); op.pop();
                     nums.push(calc(num1, num2, opt));
                 }
                 op.push(c);
             } else if (c == ')') {
                 while (!op.empty() && op.top() != '(') {
-                    int num2 = nums.top(); nums.pop();
-                    int num1 = nums.top(); nums.pop();
+                    long num2 = nums.top(); nums.pop();
+                    long num1 = nums.top(); nums.pop();
                     char opt = op.top(); op.pop();
                     nums.push(calc(num1, num2, opt));
                 }
