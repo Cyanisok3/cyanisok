@@ -100,7 +100,7 @@ return ans;
 In the context of single linked list:
 ```cpp
 ListNode* slow = head;
-ListNode* fast = head;
+ListNode* fast = head->next;
 
 while (fast != nullptr && fast->next != nullptr) {
     slow = slow->next; // one step once
@@ -229,7 +229,7 @@ It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll 
 I won't provide code snippets here since the idea is similar.
 
 
-## Hash Table
+## Hash Tables
 
 Hash table is known as a super effient data structure in terms of searching, deleting or inserting an element.
 
@@ -344,17 +344,17 @@ for(int i = 0; i < points.size(); i++) {
 ```
 
 
-## Stack
+## Stacks
 
-The `stack<int> st;` in C++ is mainly designed for semantic constraints, normally we can see people using `vector<int> stack;`, which also works well - but is not in secure encapsulation, meaning that all the values inside can be modified in a way that violates the concept of stack.
+The `stack<int> st;` in C++ is mainly designed for **semantic constraints**, normally we can see people using `vector<int> stack;`, which also works well - but is not in secure encapsulation, meaning that all the values inside can be modified in a way that violates the concept of stack.
 
 ### LeetCode.224 Basic Calculator (with *, /)
 
-The solution provided below applies a classic double-stack strategy, one for storing the numbers (digits), one for the operators. But considering that there might be unary operators in the given string (such as `-3`, `+5`), we'll add a `0` before them to make them binary operators at the very beginning.
+The solution provided below applies a classic **double-stack** strategy, one for storing the numbers (digits), one for the operators. But considering that there might be **unary operators** in the given string (such as `-3`, `+5`), we'll add a `0` before them to make them binary operators at the very beginning.
 
 After that, we maintain a `priority` hash table in `unoredered_map<char, int>` to record the precedence level for each operator, which ensures `*` and `/` take higher priority than `+` and `-` inherently.
 
-The isOperator and calc are embeded functions in lambda expression.
+The `isOperator` and `calc` are embeded functions in **lambda expression**.
 
 Lastly, we traverse the string and check if the current character is a digit or an operator or a bracket:
 - if it's a digit, we go on to check and piece all the continuous digits together into the `num` and store it into the stack `nums`.
@@ -441,3 +441,85 @@ public:
     }
 };
 ```
+
+
+## Linked Lists
+
+We focus on **singly linked list** in this section, the definition of a node is usually anonated in the LeetCode's editor: 
+
+```cpp
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+```
+
+Clear to see that it provides **3 types of initialization**, for default value stored to be `0` and pointer to the next node to be `nullptr` respectively if relavant arguments are not given.
+
+We usually create a **dummy head node** pointing to the head of the given linked list, this ensures **consistent operations** when traversing every node:
+
+```cpp
+ListNode* dummyHead = new ListNode(-1, head); // -1 is the initial value
+```
+
+### Reversing a Linked List in Groups of K (LeetCode.25)
+
+In this problem, we gonna reverse the given linked list, every `k` nodes form a group (reversal unit), and the remaining nodes in the last should be left there unchanged.
+
+```cpp
+class Solution {
+public:
+    // in-place pointer rewiring
+    pair<ListNode*, ListNode*> myReverse(ListNode* head, ListNode* tail) {
+        ListNode* prev = tail->next;
+        ListNode* p = head;
+        while (prev != tail) { // after the reversing, prev will point to tail
+            ListNode* nex = p->next;
+            p->next = prev;
+            prev = p;
+            p = nex;
+        }
+        return {tail, head};
+    }
+    ListNode* reverseKGroup(ListNode* head, int k) {
+        ListNode* dummyHead = new ListNode(0, head); // dummyHead, head will move on as the left endpoint of the k
+        ListNode* pre = dummyHead;
+
+        while (head) { // violets when there are exactly k times the number of nodes in total
+            ListNode* tail = pre;
+            for (int i = 0; i < k; ++i) { // check if there are k nodes left
+                tail = tail->next;
+                if (!tail) { // if the number of nodes is less than k
+                    return dummyHead->next;
+                }
+            }
+            tie(head, tail) = myReverse(head, tail); // receive the return values
+            pre->next = head; // need to connect the head to the main linked list
+            pre = tail; // set pre to the node before the next k
+            head = tail->next; // the new head of the next k
+        }
+        return dummyHead->next;
+    }
+};
+```
+
+The `myReverse` function is designed as an **in-place algorithm** that reverses all nodes between the given `head` and `tail` nodes. It will initially redirect the first node in the `k` interval to the next node outside, and then iteratively make all the remaining nodes point to their previous ones.
+
+Notice that the `while` loop's stop criteria is `prev != tail`. Because the pointer `prev` points to the node after the `tail`, and then during a single iteration, it will point to the node that has just been reversed.
+
+In this way, when the loop ends, the interval will connect to the node next the original `tail`, but lose the information of its previous node, so in the main function we should maintain a `pre` node to record the node before the `head`.
+
+### Using **Two Pointers** in the Context of Linked Lists
+
+In LeetCode.19, we need to remove the Nth-to-last node in the given linked list. The tricky thing is that we don't know the number of nodes at the beginning unless we traverse the entire linked list once. An easy approach is to use two pointers and utilize **the distance between them** to reach the target node - we keep the distance to be N such that when the second pointer reaches the end (pointing to `nullptr`), the first pointer will naturally points to the node before the target one. 
+
+**Remember that to remove one node in the linked list, we need to operate the node before it**. Then we can:
+
+```cpp
+first->next = first->next->next;
+```
+
+
