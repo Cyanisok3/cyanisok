@@ -6,7 +6,7 @@ This is a C++-based HTTP server framework with built-in AI capabilities. The pro
 
 - **HttpServer**: A lightweight, high-performance HTTP server framework featuring routing, middleware, sessions, and SSL support
 - **AIApps/ChatServer**: An API-only chat service built on top of HttpServer,
-  integrating DashScope, optional ONNX image recognition, and direct MySQL
+  integrating DeepSeek, optional ONNX image recognition, and direct MySQL
   persistence. The user-facing UI lives in the Next.js portfolio `/chat`
   route.
 
@@ -26,7 +26,7 @@ CppAIService/
 ├── AIApps/ChatServer/            # Chat API Service
 │   ├── include/
 │   │   ├── handlers/             # HTTP request handlers
-│   │   └── AIUtil/               # AI utilities (DashScope, Image Recognition)
+│   │   └── AIUtil/               # AI utilities (DeepSeek, Image Recognition)
 │   └── src/
 └── docker-compose.yml            # Container orchestration
 ```
@@ -62,7 +62,7 @@ Required variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DASHSCOPE_API_KEY` | Alibaba Cloud DashScope API Key | Required |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | Required |
 | `MYSQL_PASSWORD` | Application database password | Required |
 | `MYSQL_ROOT_PASSWORD` | MySQL administrative password | Required |
 
@@ -149,7 +149,7 @@ ctest --test-dir build --output-on-failure
 ### Chat Functionality
 
 - User registration and login with session-based authentication
-- Streaming chat with Alibaba Cloud DashScope AI (Qwen model)
+- Streaming chat with DeepSeek AI
 - Persistent chat history stored in MySQL
 - Direct, ordered MySQL persistence with bounded AI execution
 - Recent-message context loaded from MySQL for each request
@@ -226,7 +226,7 @@ docker-compose logs mysql
 
 ### API errors
 
-Verify your `DASHSCOPE_API_KEY` is set correctly in `.env`.
+Verify your `DEEPSEEK_API_KEY` is set correctly in `.env`.
 
 ## License
 

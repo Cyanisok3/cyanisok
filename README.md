@@ -23,7 +23,7 @@ Create the root environment file:
 cp .env.example .env
 ```
 
-Set `DASHSCOPE_API_KEY`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD`, then
+Set `DEEPSEEK_API_KEY`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD`, then
 start the full stack from the repository root:
 
 ```bash

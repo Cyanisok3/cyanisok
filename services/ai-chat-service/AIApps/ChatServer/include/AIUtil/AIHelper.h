@@ -14,9 +14,9 @@ class AIHelper
 public:
     struct AIClientConfig
     {
-        std::string model = "qwen-plus";
+        std::string model = "deepseek-v4-flash";
         std::string apiUrl =
-            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+            "https://api.deepseek.com/chat/completions";
         long requestTimeoutSeconds = 60;
         long connectTimeoutSeconds = 10;
         long streamIdleTimeoutSeconds = 90;

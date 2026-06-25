@@ -101,14 +101,23 @@ void ChatServer::initialize()
         static_cast<size_t>(readPositiveInt("AI_WORKER_COUNT", 4)),
         static_cast<size_t>(readPositiveInt("AI_QUEUE_CAPACITY", 32)));
 
-    if (const char* apiKey = std::getenv("DASHSCOPE_API_KEY");
-        apiKey && apiKey[0] != '\0')
+    const char* apiKey = std::getenv("DEEPSEEK_API_KEY");
+    if (!apiKey || apiKey[0] == '\0')
+    {
+        apiKey = std::getenv("DASHSCOPE_API_KEY");
+        if (apiKey && apiKey[0] != '\0')
+        {
+            LOG_WARN << "DASHSCOPE_API_KEY is deprecated; use DEEPSEEK_API_KEY";
+        }
+    }
+
+    if (apiKey && apiKey[0] != '\0')
     {
         aiHelper_ = std::make_unique<AIHelper>(apiKey);
     }
     else
     {
-        LOG_ERROR << "DASHSCOPE_API_KEY is not configured";
+        LOG_ERROR << "DEEPSEEK_API_KEY is not configured";
     }
 
     initializeOptionalImageRecognizer();

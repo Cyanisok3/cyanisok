@@ -82,7 +82,7 @@ jobs:
           fi
 
           missing_environment=false
-          for key in DASHSCOPE_API_KEY MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+          for key in DEEPSEEK_API_KEY MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
             value="$(sed -n "s/^${key}=//p" .env | tail -n 1)"
             if [[ -z "$value" ]]; then
               echo "::error file=.env::Missing required value: $key"
@@ -90,7 +90,7 @@ jobs:
             fi
           done
 
-          if grep -Eq '^(DASHSCOPE_API_KEY=your_|MYSQL_PASSWORD=change-me$|MYSQL_ROOT_PASSWORD=change-root-password$)' .env; then
+          if grep -Eq '^(DEEPSEEK_API_KEY=your_|MYSQL_PASSWORD=change-me$|MYSQL_ROOT_PASSWORD=change-root-password$)' .env; then
             echo "::error file=.env::Production .env still contains placeholder credentials."
             missing_environment=true
           fi

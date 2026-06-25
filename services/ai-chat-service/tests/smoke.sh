@@ -11,7 +11,7 @@ compose=(
 
 export MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-smoke-root-password}"
 export MYSQL_PASSWORD="${MYSQL_PASSWORD:-smoke-app-password}"
-export DASHSCOPE_API_KEY="${DASHSCOPE_API_KEY:-smoke-api-key}"
+export DEEPSEEK_API_KEY="${DEEPSEEK_API_KEY:-smoke-api-key}"
 
 cleanup() {
   "${compose[@]}" down -v --remove-orphans

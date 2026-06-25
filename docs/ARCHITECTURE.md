@@ -66,7 +66,7 @@ portfolio-web container
   v
 chat-service container :80
   |
-  +--> DashScope-compatible AI API
+  +--> DeepSeek OpenAI-compatible AI API
   +--> MySQL
   +--> ONNX Runtime image recognizer
 ```
@@ -206,7 +206,7 @@ The backend contains:
 - MySQL integration.
 - Direct MySQL persistence through domain repositories.
 - ONNX Runtime image recognition.
-- DashScope-compatible chat completion calls.
+- DeepSeek OpenAI-compatible chat completion calls.
 
 The C++ service is API-only. Old standalone HTML pages and page handlers were removed from the supported application surface.
 
@@ -326,7 +326,7 @@ Root `.env` is used by Docker Compose and must not be committed.
 Important variables:
 
 ```text
-DASHSCOPE_API_KEY
+DEEPSEEK_API_KEY
 AI_MODEL
 AI_API_URL
 AI_REQUEST_TIMEOUT_SECONDS
@@ -351,7 +351,7 @@ For the integrated stack, `portfolio-web` receives:
 AI_CHAT_SERVICE_URL=http://chat-service:80
 ```
 
-Do not expose `DASHSCOPE_API_KEY` or any backend credential to client code.
+Do not expose `DEEPSEEK_API_KEY` or any backend credential to client code.
 
 ## Nginx, HTTPS, and ICP
 
@@ -456,7 +456,7 @@ Before building, the workflow requires a server-local file:
 At minimum it must contain non-placeholder values for:
 
 ```text
-DASHSCOPE_API_KEY
+DEEPSEEK_API_KEY
 MYSQL_PASSWORD
 MYSQL_ROOT_PASSWORD
 ```
