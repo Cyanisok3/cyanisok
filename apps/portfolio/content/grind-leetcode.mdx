@@ -14,7 +14,7 @@ In UNNC, we have a Y3 module named 'Algorithms Data Structures and Efficiency'. 
 
 Basically, we have two concepts here: **Time Complexity** and **Space Complexity**, representing the relationship between the input size and the resources (time & space) an algorithm takes. For the space complexity, normally we can get awared by only looking at the additional data structures (e.g., a new array or matrix with the size of blabla..) an algorithm allocates. An interesting fact is that the amount of space an algorithm consumes is often *cheaper* than the time it takes - I'd say in most cases when you try to make trade-offs, and this could be also explained in the hardware perspective (you know, memory vs. CPU).
 
-For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer):
+For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer).
 
 ---
 
@@ -634,14 +634,68 @@ public:
 };
 ```
 
-### **Quick Note:**
+### **Quick Note**
 
 -[x] Avoid directly manipulate the head node without setting a dummy head - always remember that **DO NOT** lose the head node's address.
 -[x] `!head` == `head != nullptr`.
 -[x] Merely swapping the values of two nodes is not equal to successfully swapping the nodes.
+-[x] Don't forget the destructor when necessarily, especially when an abstract data structure (ADT) class is involved.
 
 ---
 
 ## Binary Trees
 
+A binary Tree is an ADT, there are implementations of binary trees in forms of arrays, linked lists; or **sub-ADTs** such as binary search tree (BST), AVL, Red-Black Tree.
 
+Normally, the binary tree node is defined as a node in linked list, but with two pointers pointing to its left and right child nodes, respectively. For instance:
+
+```cpp
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+```
+
+According to the sequences gained from **in-order and post-order** traversal, we can reconstruct the binary tree. Same rule applies to the comb. of **in-order and pre-order** traversal.
+
+LeetCode.105 asks us to construct a binary tree according to the arrays `preorder` & `inorder` from the corresponding traversals of the same tree. This problem stumped me at first, but there are patterns we could take advantage of:
+
+- The first element in the `preorder` is always the value of the root node.
+- In `inorder` array, we can always split it easily into 3 parts **centered around the element corresponding to the root node** - in this way, all the elements preceding and following it are the nodes in the left child tree and right child tree, respectively.
+- Since it should be easy to infer **the number of nodes in the left child tree or in the right child tree**, we can then apply this information back to the `preorder` array to make the most of the conditions.
+- All these steps still hold true to the subarrays (representing child trees as well), hence a **recursive** function call can be applicable.
+- Lastly, notice that we can maintain an `unordered_map<int, int>` to store the indexes of elements in the `inorder` array for easy searching.
+
+Here is the full code snippets:
+
+```cpp
+class Solution {
+private:
+    vector<int>* pre;
+    vector<int>* in;
+    unordered_map<int, int> mp;
+    TreeNode* build(int preL, int preR, int inL, int inR) {
+        if (preL > preR) return nullptr; // if the left endpoint index bypasses the right endpoint
+        int val = (*pre)[preL]; // equal to preorder[preL], take the 1st element out - the root node
+        TreeNode* root = new TreeNode(val);
+
+        int ink = mp[val]; // look up the index of the root value in inorder vector
+        int prek = preL + ink - inL; // 'ink - inL' is the number of nodes in the LCT, hence prek is the new preR for the LCT
+        TreeNode* left = build(preL + 1, prek, inL, ink - 1);
+        TreeNode* right = build(prek + 1, preR, ink + 1, inR);
+        root->left = left, root->right = right;
+        return root;
+    }
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        pre = &preorder, in = &inorder; // get the address head of two vectors, respectively
+        int n = preorder.size();
+        for (int i = 0; i < n; ++i) mp[inorder[i]] = i; // register all elements in inorder vector
+        return build(0, n - 1, 0, n - 1);
+    }
+};
+```
