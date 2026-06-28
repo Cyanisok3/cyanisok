@@ -38,7 +38,7 @@ export const mdxComponents = {
     }
     return (
       <code
-        className="px-1.5 py-0.5 rounded-md bg-muted/60 dark:bg-muted/40 text-sm font-mono text-foreground/90"
+        className="px-1.5 py-0.5 rounded-md bg-muted/60 dark:bg-muted/40 text-sm font-code text-foreground/90"
         {...props}
       >
         {children}
@@ -46,4 +46,3 @@ export const mdxComponents = {
     );
   },
 } as const;
-

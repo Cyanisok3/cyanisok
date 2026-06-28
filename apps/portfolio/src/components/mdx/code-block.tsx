@@ -33,6 +33,10 @@ function getTextContent(node: ReactNode): string {
   return "";
 }
 
+function normalizeCodeText(text: string) {
+  return text.replace(/(?:\r?\n)+$/, "");
+}
+
 function getCodeMetadata(children: ReactNode) {
   const codeElement = Children.toArray(children).find(
     (child) => isValidElement(child) && child.type === "code"
@@ -40,7 +44,7 @@ function getCodeMetadata(children: ReactNode) {
 
   if (!isValidElement(codeElement)) {
     return {
-      codeText: getTextContent(children),
+      codeText: normalizeCodeText(getTextContent(children)),
       className: "",
       title: null,
     };
@@ -53,7 +57,7 @@ function getCodeMetadata(children: ReactNode) {
   };
 
   return {
-    codeText: getTextContent(props.children),
+    codeText: normalizeCodeText(getTextContent(props.children)),
     className: props.className || "",
     title: props["data-title"] || null,
   };
@@ -119,7 +123,7 @@ export function CodeBlock({ children, ...props }: CodeBlockProps) {
   };
 
   return (
-    <div className="group relative rounded-xl overflow-hidden border border-border">
+    <div className="group relative overflow-hidden rounded-xl border border-border backdrop-blur-xs shadow-sm">
       <pre
         {...props}
         className={cn("p-0! m-0! overflow-x-auto", props.className)}

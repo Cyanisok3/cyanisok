@@ -14,6 +14,23 @@ const sans = localFont({
   display: "swap",
 });
 
+const code = localFont({
+  src: [
+    {
+      path: "../../public/fonts/google-sans-code/GoogleSansCode[wght].ttf",
+      style: "normal",
+      weight: "300 800",
+    },
+    {
+      path: "../../public/fonts/google-sans-code/GoogleSansCode-Italic[wght].ttf",
+      style: "italic",
+      weight: "300 800",
+    },
+  ],
+  variable: "--font-google-sans-code",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(DATA.url),
   title: {
@@ -60,7 +77,8 @@ export default function RootLayout({
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased relative",
-          sans.variable
+          sans.variable,
+          code.variable
         )}
       >
         <ThemeProvider attribute="class" defaultTheme="light">

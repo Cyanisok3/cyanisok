@@ -8,10 +8,7 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 ---
 
 
-# C++ Coding Notes
-
-
-## The First Thing Goes With **Algorithm Efficiency**
+# The First Thing Goes With **Algorithm Efficiency**
 
 In UNNC, we have a Y3 module named 'Algorithms Data Structures and Efficiency'. At the same time, when we are diving into the ocean of LeetCode problems, getting frustrated and trying to get inspired from solutions provided by others, they always mention something like O(mn), O(nlogn), etc..
 
@@ -19,6 +16,7 @@ Basically, we have two concepts here: **Time Complexity** and **Space Complexity
 
 For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer):
 
+---
 
 ## Arrays: Initialization & Basic Operations
 
@@ -67,6 +65,7 @@ v.resize(10);
 for(int x : v) cout << x;
 ```
 
+---
 
 ## Application of **Two Pointers** & **Sliding Window**
 
@@ -138,6 +137,7 @@ while (right < nums.size()) {
 return res;
 ```
 
+---
 
 ## Marices
 
@@ -228,6 +228,7 @@ It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll 
 
 I won't provide code snippets here since the idea is similar.
 
+---
 
 ## Hash Tables
 
@@ -343,6 +344,7 @@ for(int i = 0; i < points.size(); i++) {
 }
 ```
 
+---
 
 ## Stacks
 
@@ -442,6 +444,7 @@ public:
 };
 ```
 
+---
 
 ## Linked Lists
 
@@ -512,14 +515,133 @@ Notice that the `while` loop's stop criteria is `prev != tail`. Because the poin
 
 In this way, when the loop ends, the interval will connect to the node next the original `tail`, but lose the information of its previous node, so in the main function we should maintain a `pre` node to record the node before the `head`.
 
+
 ### Using **Two Pointers** in the Context of Linked Lists
 
 In LeetCode.19, we need to remove the Nth-to-last node in the given linked list. The tricky thing is that we don't know the number of nodes at the beginning unless we traverse the entire linked list once. An easy approach is to use two pointers and utilize **the distance between them** to reach the target node - we keep the distance to be N such that when the second pointer reaches the end (pointing to `nullptr`), the first pointer will naturally points to the node before the target one. 
 
-**Remember that to remove one node in the linked list, we need to operate the node before it**. Then we can:
+**Remember that to remove one node in the linked list, we need to operate the node before it**. Then we can: `first->next = first->next->next;`.
+
+Similar idea can be seen in LeetCode.61.
+
+
+### **Backup:** Doubly Linked List in LeetCode.146 - LRU Cache
+
+Initialization of the node:
 
 ```cpp
-first->next = first->next->next;
+struct DLinkedNode {
+    int key, value; // 
+    DLinkedNode* prev;
+    DLinkedNode* next;
+    DLinkedNode() : key(0), value(0), prev(nullptr), next(nullptr) {} // default assignment
+    DLinkedNode(int _key, int _value)
+        : key(_key), value(_value), prev(nullptr), next(nullptr) {}
+};
 ```
+
+Notice that for initialization of a doubly linked list, we need to create both the head and the tail node.
+
+In this problem, we also initialize an `unordered_map<int, DLinkedNode*> cache` to manually record the relation between a node (val) and the value (key) stored in it for easy searching.
+
+Lastly, it's better to add a destructor to the class considering that we need to allocate the nodes from heap space. This will be automatically triggered at the end of its lifecycle. 
+
+The full code is provided here:
+
+```cpp
+struct DLinkedNode { // def. of node in a double linked list
+    int key, value;
+    DLinkedNode* prev;
+    DLinkedNode* next;
+    DLinkedNode() : key(0), value(0), prev(nullptr), next(nullptr) {}; // shorthand for initialization assignments
+    DLinkedNode(int _key, int _value) : key(_key), value(_value), prev(nullptr), next(nullptr) {};
+};
+
+class LRUCache {
+private:
+    unordered_map<int, DLinkedNode*> cache;
+    DLinkedNode* head;
+    DLinkedNode* tail;
+    int size;
+    int capacity;
+
+public:
+    LRUCache(int _capacity) : capacity(_capacity), size(0) {
+        head = new DLinkedNode();
+        tail = new DLinkedNode();
+        head->next = tail;
+        tail->prev = head;
+    }
+
+    int get(int key) {
+        if (!cache.count(key)) { // if not found
+            return -1;
+        }
+        DLinkedNode* node = cache[key]; // if found, move it to the head
+        moveToHead(node);
+        return node->value;
+    }
+
+    void put(int key, int value) {
+        if (!cache.count(key)) {
+            DLinkedNode* node = new DLinkedNode(key, value);
+            cache[key] = node; // register in the hash table
+            addToHead(node); // add it to the head
+            ++size;
+            if (size > capacity) { // if oversized, remove and delete the tail node
+                DLinkedNode* removed = removeTail();
+                cache.erase(removed->key);
+                delete removed;
+                --size;
+            }
+        } else { // if same node exists, update the value and move it to the head
+            DLinkedNode* node = cache[key];
+            node->value = value;
+            moveToHead(node);
+        }
+    }
+
+    void addToHead(DLinkedNode* node) {
+        node->prev = head;
+        node->next = head->next;
+        head->next->prev = node;
+        head->next = node;
+    }
+
+    void removeNode(DLinkedNode* node) {
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+    }
+
+    void moveToHead(DLinkedNode* node) {
+        removeNode(node);
+        addToHead(node);
+    }
+
+    DLinkedNode* removeTail() {
+        DLinkedNode* node = tail->prev;
+        removeNode(node);
+        return node;
+    }
+    ~LRUCache() { // we need destructor to eliminate the entire dlinked list
+        DLinkedNode* cur = head;
+        while (cur) {
+            DLinkedNode* nxt = cur->next;
+            delete cur;
+            cur = nxt;
+        }
+    }
+};
+```
+
+### **Quick Note:**
+
+-[x] Avoid directly manipulate the head node without setting a dummy head - always remember that **DO NOT** lose the head node's address.
+-[x] `!head` == `head != nullptr`.
+-[x] Merely swapping the values of two nodes is not equal to successfully swapping the nodes.
+
+---
+
+## Binary Trees
 
 
