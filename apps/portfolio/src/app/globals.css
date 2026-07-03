@@ -202,7 +202,15 @@
   }
 
   .prose em {
-    @apply text-foreground/90;
+    @apply italic text-foreground/90;
+  }
+
+  .prose :where(h1, h2, h3, h4, h5, h6) strong {
+    @apply font-bold! text-foreground!;
+  }
+
+  .prose :where(h1, h2, h3, h4, h5, h6) em {
+    @apply italic! text-foreground/90!;
   }
 
   .prose :where(ul > li::marker, ol > li::marker):not(

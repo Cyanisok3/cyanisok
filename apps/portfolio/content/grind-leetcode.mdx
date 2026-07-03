@@ -660,6 +660,104 @@ struct TreeNode {
 };
 ```
 
+### Depth-First Search (DFS)
+
+Both BFS and DFS can be implemented using recursive stack or manual stack, corresponding to the **recursive and iterative implementations**, respectively.
+
+Manually:
+
+- BFS: `queue<TreeNode*> q` + `while(!q.empty())`
+- DFS: `stack<TreeNode*> st` + `while(!st.empty())`
+
+For DFS, there are **pre-order, in-order and post-order** traversals. Here is example code of in-order traversal:
+
+```cpp
+class Solution {
+public:
+    void traversal(TreeNode* cur, vector<int>& vec) {
+        if (cur == NULL) return;
+        // note that you can simple change the order of these three lines of code below to implement pre-order or post-order traversals
+        vec.push_back(cur->val);    // parent
+        traversal(cur->left, vec);  // left child
+        traversal(cur->right, vec); // right child
+    }
+    vector<int> preorderTraversal(TreeNode* root) {
+        vector<int> result;
+        traversal(root, result); // begin with the root node
+        return result;
+    }
+};
+```
+
+To avoid stack overflow issue, we can adopt the iterative approach:
+
+```cpp
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        vector<int> result;
+        stack<TreeNode*> st;
+        TreeNode* cur = root;
+        while (cur != NULL || !st.empty()) {
+            if (cur != NULL) { // use pointer cur to reach the deepest left leaf node first
+                st.push(cur); // push all parent nodes visited into the stack
+                cur = cur->left;                // left child
+            } else {
+                cur = st.top(); // now pop out the nodes to perform a backward traversal, left child node first, then its parent and right child node.
+                st.pop();
+                result.push_back(cur->val);     // parent node
+                cur = cur->right;               // right child
+            }
+        }
+        return result;
+    }
+};
+```
+
+Pre-order and post-order:
+
+```cpp
+class Solution {
+public:
+    vector<int> preorderTraversal(TreeNode* root) {
+        stack<TreeNode*> st;
+        vector<int> result;
+        if (root == NULL) return result;
+        st.push(root);
+        while (!st.empty()) {
+            TreeNode* node = st.top();                       // parent node
+            st.pop();
+            result.push_back(node->val);
+            if (node->right) st.push(node->right);           // right child（exclude the null node）
+            if (node->left) st.push(node->left);             // left child（exclude the null node）
+        }
+        return result;
+    }
+};
+```
+
+And for the post-order, we just need to visit left child before the right child node, based on the pre-order traversal code, and lastly reverse the order of the entire result vector:
+
+```cpp
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode* root) {
+        stack<TreeNode*> st;
+        vector<int> result;
+        if (root == NULL) return result;
+        st.push(root);
+        while (!st.empty()) {
+            TreeNode* node = st.top();
+            st.pop();
+            result.push_back(node->val);
+            if (node->left) st.push(node->left); // here, left first
+            if (node->right) st.push(node->right); // still, ignore null nodes
+        }
+        reverse(result.begin(), result.end()); // lastly, reverse the result
+        return result;
+    }
+};
+
 According to the sequences gained from **in-order and post-order** traversal, we can reconstruct the binary tree. Same rule applies to the comb. of **in-order and pre-order** traversal.
 
 LeetCode.105 asks us to construct a binary tree according to the arrays `preorder` & `inorder` from the corresponding traversals of the same tree. This problem stumped me at first, but there are patterns we could take advantage of:
@@ -699,3 +797,77 @@ public:
     }
 };
 ```
+
+### Breadth-First Search (BFS)
+
+BFS is also known as **level-order traversal**, and normally we use a queue to store and replace nodes of layers. Here is an example to perform it **from the root to the leaves**:
+
+```cpp
+class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        queue<TreeNode*> q;
+        if (root != NULL) q.push(root);
+        vector<vector<int>> result; // use a 2D vector to maintain the depth information of the tree
+
+        while (!q.empty()) {
+            int size = q.size();
+            vector<int> vec;
+            // each internal traversal, we try to replace all the nodes in the queue with their child nodes
+            // q.size() can change, so we use a fixed variable size
+            for (int i = 0; i < size; i++) {
+                TreeNode* node = q.front();
+                q.pop();
+                vec.push_back(node->val);
+                if (node->left) q.push(node->left);
+                if (node->right) q.push(node->right);
+            }
+            result.push_back(vec); // push the current layer into the result
+        }
+        return result;
+    }
+};
+```
+
+But don't fall into the trap of inertial thinking that we must adopt a queue or stack to perform BFS or DFS, in certain cases, we can cheat by making the most of other nodes that had been visited. Taking level-order traversal as an example for a special case - see LeetCode.117:
+
+In this problem, each tree node also has a `next` pointer that points to its next right node (same depth), if it doesn't exist, set it to `nullptr`.
+
+We can consider a nested `while` loop to implement the level-order traversal. Let's see each level in the binary tree as a linked list, the internal loop needs to connect each node in the current level and notice that we ought to maintain a `dummyHead` node to record their head (same as before) so that every time we finish the connection for one level, we can make the `cur` point to the `dummy` to get deeper to the next level. And since all the nodes in the same level are already connected by their `next` pointers, it's natural to access all the child nodes by accessing their parents.
+
+```cpp
+// struct Node {
+//   int val;
+//   Node *left;
+//   Node *right;
+//   Node *next;
+// }
+
+class Solution {
+public:
+    Node* connect(Node* root) {
+        Node* cur = root;
+        while (cur) {
+            Node* dummy = new Node(0);
+            Node* p = dummy;
+            while (cur) {
+                if (cur->left) { // the null node has been already excluded here
+                    p->next = cur->left; // the first time only modifies dummy’s next, but every subsequent (including the one below) edits real tree nodes' own next
+                    p = p->next; // acts as the tail node in singly linked list
+                }
+                if (cur->right) { // same as above
+                    p->next = cur->right;
+                    p = p->next;
+                }
+                cur = cur->next; // get to the next node in the current level
+            }
+            cur = dummy->next; // get to the leftmost node in the next level
+        }
+        return root;
+    }
+};
+```
+
+- [x] Recall that a `dummyHead` node (`dummy` in the context) together with a `tail` node (`p`) is always necessary to create a singly linked list.
+
+### The **Path** in Binary Tree
