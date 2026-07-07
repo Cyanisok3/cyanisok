@@ -17,11 +17,16 @@ public:
             host, user, password, database, poolSize);
     }
 
-    template<typename... Args>
-    sql::ResultSet* executeQuery(const std::string& sql, Args&&... args)
+    template<typename Callback, typename... Args>
+    auto query(const std::string& sql, Callback&& callback, Args&&... args)
+        -> decltype(callback(std::declval<sql::ResultSet&>()))
     {
         auto conn = http::db::DbConnectionPool::getInstance().getConnection();
-        return conn->executeQuery(sql, std::forward<Args>(args)...);
+        return conn->query(
+            sql,
+            std::forward<Callback>(callback),
+            std::forward<Args>(args)...
+        );
     }
 
     template<typename... Args>
@@ -29,6 +34,19 @@ public:
     {
         auto conn = http::db::DbConnectionPool::getInstance().getConnection();
         return conn->executeUpdate(sql, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    long long executeInsert(const std::string& sql, Args&&... args)
+    {
+        auto conn = http::db::DbConnectionPool::getInstance().getConnection();
+        return conn->executeInsert(sql, std::forward<Args>(args)...);
+    }
+
+    bool ping()
+    {
+        auto conn = http::db::DbConnectionPool::getInstance().getConnection();
+        return conn->ping();
     }
 };
 

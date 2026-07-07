@@ -1,105 +1,162 @@
 #include "../include/AIUtil/ImageRecognizer.h"
+#include "../include/AIUtil/ImageValidation.h"
 
-ImageRecognizer::ImageRecognizer(const std::string& model_path,
-    const std::string& label_path)
+#include <algorithm>
+#include <cmath>
+#include <opencv2/dnn.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+
+ImageRecognizer::ImageRecognizer(
+    const std::string& modelPath,
+    const std::string& labelPath)
     : env(ORT_LOGGING_LEVEL_WARNING, "ImageRecognizer")
 {
-    Ort::SessionOptions session_options;
-    session_options.SetIntraOpNumThreads(1);
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    Ort::SessionOptions sessionOptions;
+    sessionOptions.SetIntraOpNumThreads(1);
+    sessionOptions.SetGraphOptimizationLevel(
+        GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
 
-    session = std::make_unique<Ort::Session>(env, model_path.c_str(), session_options);
+    session = std::make_unique<Ort::Session>(
+        env,
+        modelPath.c_str(),
+        sessionOptions);
     allocator = std::make_unique<Ort::AllocatorWithDefaultOptions>();
 
-    // 获取输入输出名字
     input_name = session->GetInputNameAllocated(0, *allocator).get();
     output_name = session->GetOutputNameAllocated(0, *allocator).get();
-
-    // 假设输入是 [1,3,H,W]
-    input_shape = session->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
+    input_shape =
+        session->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
+    if (input_shape.size() != 4 || input_shape[2] <= 0 || input_shape[3] <= 0)
+    {
+        throw std::runtime_error("Unsupported image model input shape");
+    }
     input_height = static_cast<int>(input_shape[2]);
     input_width = static_cast<int>(input_shape[3]);
-
-    // 加载标签文件
-    LoadLabels(label_path);
+    LoadLabels(labelPath);
 }
 
-void ImageRecognizer::LoadLabels(const std::string& label_path) {
-    std::ifstream infile(label_path);
-    if (!infile.is_open()) {
-        throw std::runtime_error("Failed to open label file: " + label_path);
+void ImageRecognizer::LoadLabels(const std::string& labelPath)
+{
+    std::ifstream input(labelPath);
+    if (!input.is_open())
+    {
+        throw std::runtime_error("Failed to open label file: " + labelPath);
     }
 
     std::string line;
-    while (std::getline(infile, line)) {
-        if (!line.empty()) {
+    while (std::getline(input, line))
+    {
+        if (!line.empty())
+        {
             labels.push_back(line);
         }
     }
-    infile.close();
-
-    if (labels.empty()) {
-        throw std::runtime_error("No labels loaded from file: " + label_path);
+    if (labels.empty())
+    {
+        throw std::runtime_error("No labels loaded from file: " + labelPath);
     }
 }
 
-std::string ImageRecognizer::PredictFromFile(const std::string& image_path) {
-    cv::Mat img = cv::imread(image_path);
-    if (img.empty()) {
-        throw std::runtime_error("Failed to load image: " + image_path);
+ImageRecognizer::PredictionResult ImageRecognizer::PredictFromFile(
+    const std::string& imagePath)
+{
+    const cv::Mat image = cv::imread(imagePath);
+    if (image.empty())
+    {
+        throw std::runtime_error("Failed to load image: " + imagePath);
     }
-    return PredictFromMat(img);
+    return PredictFromMat(image);
 }
 
-std::string ImageRecognizer::PredictFromBuffer(const std::vector<unsigned char>& image_data) {
-    cv::Mat img = cv::imdecode(image_data, cv::IMREAD_COLOR);
-    if (img.empty()) {
+ImageRecognizer::PredictionResult ImageRecognizer::PredictFromBuffer(
+    const std::vector<unsigned char>& imageData)
+{
+    image_validation::validateEncodedImage(imageData);
+    const cv::Mat image = cv::imdecode(imageData, cv::IMREAD_COLOR);
+    if (image.empty())
+    {
         throw std::runtime_error("Failed to decode image from buffer");
     }
-    return PredictFromMat(img);
+    return PredictFromMat(image);
 }
 
-std::string ImageRecognizer::PredictFromMat(const cv::Mat& img_raw) {
-    if (img_raw.empty()) {
+ImageRecognizer::PredictionResult ImageRecognizer::PredictFromMat(
+    const cv::Mat& rawImage)
+{
+    if (rawImage.empty())
+    {
         throw std::runtime_error("Input image is empty");
     }
 
-    cv::Mat img;
-    cv::resize(img_raw, img, cv::Size(input_width, input_height));
-    img.convertTo(img, CV_32F, 1.0 / 255.0);
+    cv::Mat image;
+    cv::cvtColor(rawImage, image, cv::COLOR_BGR2RGB);
+    cv::resize(image, image, cv::Size(input_width, input_height));
+    image.convertTo(image, CV_32F, 1.0 / 255.0);
 
-    // NHWC -> NCHW
-    cv::dnn::blobFromImage(img, img);
-
-    std::vector<int64_t> dims = { 1, 3, input_height, input_width };
-    size_t input_tensor_size = 1 * 3 * input_height * input_width;
-
-    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(
-        OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
-
-    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-        memory_info, img.ptr<float>(), input_tensor_size, dims.data(), dims.size());
-
-    // Run inference
-    const char* input_names[] = { input_name.c_str() };
-    const char* output_names[] = { output_name.c_str() };
-
-    auto output_tensors = session->Run(
-        Ort::RunOptions{ nullptr },
-        input_names, &input_tensor, 1,
-        output_names, 1
-    );
-
-    float* output_data = output_tensors.front().GetTensorMutableData<float>();
-
-    // argmax
-    int num_classes = labels.empty() ? 1000 : (int)labels.size();
-    int pred_class = std::max_element(output_data, output_data + num_classes) - output_data;
-
-    if (pred_class >= 0 && pred_class < (int)labels.size()) {
-        return labels[pred_class];
+    std::vector<cv::Mat> channels;
+    cv::split(image, channels);
+    const float means[] = {0.485F, 0.456F, 0.406F};
+    const float deviations[] = {0.229F, 0.224F, 0.225F};
+    for (size_t i = 0; i < channels.size(); ++i)
+    {
+        channels[i] = (channels[i] - means[i]) / deviations[i];
     }
-    else {
-        return "Unknown";
+    cv::merge(channels, image);
+
+    cv::Mat blob = cv::dnn::blobFromImage(image);
+    const std::vector<int64_t> dimensions = {
+        1,
+        3,
+        input_height,
+        input_width
+    };
+    const size_t inputSize =
+        static_cast<size_t>(3 * input_height * input_width);
+    Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(
+        OrtAllocatorType::OrtArenaAllocator,
+        OrtMemType::OrtMemTypeDefault);
+    Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
+        memoryInfo,
+        blob.ptr<float>(),
+        inputSize,
+        dimensions.data(),
+        dimensions.size());
+
+    const char* inputNames[] = {input_name.c_str()};
+    const char* outputNames[] = {output_name.c_str()};
+    auto outputTensors = session->Run(
+        Ort::RunOptions{nullptr},
+        inputNames,
+        &inputTensor,
+        1,
+        outputNames,
+        1);
+
+    float* output = outputTensors.front().GetTensorMutableData<float>();
+    const size_t outputCount = outputTensors.front()
+        .GetTensorTypeAndShapeInfo()
+        .GetElementCount();
+    const size_t classCount = std::min(outputCount, labels.size());
+    if (classCount == 0)
+    {
+        throw std::runtime_error("Image model produced no classes");
     }
+
+    const auto maximum = std::max_element(output, output + classCount);
+    const size_t predictedClass =
+        static_cast<size_t>(maximum - output);
+    const float maximumLogit = *maximum;
+
+    double softmaxDenominator = 0.0;
+    for (size_t i = 0; i < classCount; ++i)
+    {
+        softmaxDenominator += std::exp(
+            static_cast<double>(output[i] - maximumLogit));
+    }
+
+    return PredictionResult{
+        labels[predictedClass],
+        static_cast<float>(1.0 / softmaxDenominator)
+    };
 }

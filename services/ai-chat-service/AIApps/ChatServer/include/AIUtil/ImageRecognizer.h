@@ -1,7 +1,6 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/dnn.hpp>
+#include <opencv2/core/mat.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <string>
 #include <vector>
@@ -11,12 +10,17 @@
 
 class ImageRecognizer {
 public:
+    struct PredictionResult {
+        std::string className;
+        float confidence;
+    };
+
     explicit ImageRecognizer(const std::string& model_path,
         const std::string& label_path = "/root/imagenet_classes.txt");
 
-    std::string PredictFromFile(const std::string& image_path);
-    std::string PredictFromBuffer(const std::vector<unsigned char>& image_data);
-    std::string PredictFromMat(const cv::Mat& img);
+    PredictionResult PredictFromFile(const std::string& image_path);
+    PredictionResult PredictFromBuffer(const std::vector<unsigned char>& image_data);
+    PredictionResult PredictFromMat(const cv::Mat& img);
 
 private:
     Ort::Env env;

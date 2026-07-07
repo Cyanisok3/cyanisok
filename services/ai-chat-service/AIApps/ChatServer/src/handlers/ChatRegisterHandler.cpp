@@ -35,12 +35,13 @@ void ChatRegisterHandler::handle(const http::HttpRequest& req, http::HttpRespons
             return;
         }
 
-        int userId = insertUser(username, password);
+        const std::string passwordHash = security::hashPassword(password);
+        const auto userId = server_->userRepository_.create(username, passwordHash);
 
-        if (userId != -1)
+        if (userId)
         {
             writeJsonResponse(req, resp, http::HttpResponse::k200Ok, "OK",
-                {{"status", "success"}, {"message", "Register successful"}, {"userId", userId}});
+                {{"status", "success"}, {"message", "Register successful"}, {"userId", *userId}});
         }
         else
         {
@@ -48,37 +49,14 @@ void ChatRegisterHandler::handle(const http::HttpRequest& req, http::HttpRespons
                 {{"status", "error"}, {"message", "Username already exists"}});
         }
     }
+    catch (const json::exception&) {
+        writeJsonResponse(req, resp, http::HttpResponse::k400BadRequest,
+            "Bad Request",
+            {{"status", "error"}, {"message", "Invalid JSON body"}}, true);
+    }
     catch (const std::exception& e) {
+        LOG_ERROR << "Registration failed: " << e.what();
         writeJsonResponse(req, resp, http::HttpResponse::k500InternalServerError, "Internal Server Error",
-            {{"status", "error"}, {"message", e.what()}}, true);
+            {{"status", "error"}, {"message", "Unable to create account"}}, true);
     }
-}
-
-int ChatRegisterHandler::insertUser(const std::string& username, const std::string& password)
-{
-    if (!isUserExist(username))
-    {
-        std::string passwordHash = security::hashPassword(password);
-        std::string sql = "INSERT INTO users (username, password_hash) VALUES (?, ?)";
-        mysqlUtil_.executeUpdate(sql, username, passwordHash);
-
-        std::string sql2 = "SELECT id FROM users WHERE username = ?";
-        auto res = mysqlUtil_.executeQuery(sql2, username);
-        if (res->next())
-        {
-            return res->getInt("id");
-        }
-    }
-    return -1;
-}
-
-bool ChatRegisterHandler::isUserExist(const std::string& username)
-{
-    std::string sql = "SELECT id FROM users WHERE username = ?";
-    auto res = mysqlUtil_.executeQuery(sql, username);
-    if (res->next())
-    {
-        return true;
-    }
-    return false;
 }

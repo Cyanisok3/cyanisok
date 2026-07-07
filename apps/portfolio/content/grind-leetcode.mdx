@@ -1,18 +1,26 @@
 ---
 title: "Thoughts on Solving LeetCode Problems"
 publishedAt: "2025-05-29"
-updatedAt: "2026-06-04"
+updatedAt: "2026-07-04"
 author: "Cyan Liu"
 summary: "Personally I use C++ for all LeetCode problems, so all the instances I provided are all in C++. Also, I worked through the problems in order; please check out the “150 Classic Interview Questions” series on LeetCode."
 image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
 ---
 
 
-# C++ Coding Notes
+# The First Thing Goes With **Algorithm Efficiency**
+
+In UNNC, we have a Y3 module named 'Algorithms Data Structures and Efficiency'. At the same time, when we are diving into the ocean of LeetCode problems, getting frustrated and trying to get inspired from solutions provided by others, they always mention something like O(mn), O(nlogn), etc..
+
+Basically, we have two concepts here: **Time Complexity** and **Space Complexity**, representing the relationship between the input size and the resources (time & space) an algorithm takes. For the space complexity, normally we can get awared by only looking at the additional data structures (e.g., a new array or matrix with the size of blabla..) an algorithm allocates. An interesting fact is that the amount of space an algorithm consumes is often *cheaper* than the time it takes - I'd say in most cases when you try to make trade-offs, and this could be also explained in the hardware perspective (you know, memory vs. CPU).
+
+For the time complexity, it's usually not easy to 'only-look-once'. In our lectures, we learned **recurrence**, that is to calculate the asymptomic time complexity of an algorithm by breaking the problem down into smaller parts (like divide-and-conquer).
+
+---
 
 ## Arrays: Initialization & Basic Operations
 
-### Typical Array
+### Typical Arrays
 
 ```cpp
 int arr[5]; // fill in with 0s by default
@@ -23,7 +31,7 @@ arr[0] = 10;
 int x = arr[1];
 ```
 
-### 1D Vector
+### 1D Vectors
 
 ```cpp
 #include <vector>
@@ -57,6 +65,8 @@ v.resize(10);
 for(int x : v) cout << x;
 ```
 
+---
+
 ## Application of **Two Pointers** & **Sliding Window**
 
 ### Left-Right Pointers
@@ -89,7 +99,7 @@ return ans;
 In the context of single linked list:
 ```cpp
 ListNode* slow = head;
-ListNode* fast = head;
+ListNode* fast = head->next;
 
 while (fast != nullptr && fast->next != nullptr) {
     slow = slow->next; // one step once
@@ -100,6 +110,7 @@ while (fast != nullptr && fast->next != nullptr) {
     }
     return false;
 }
+```
 
 ### General Framework of Sliding Window
 
@@ -126,9 +137,11 @@ while (right < nums.size()) {
 return res;
 ```
 
+---
+
 ## Marices
 
-For me, the matrix is the base of dynamic programming, and the best practice to get familiar with it might be Leetcode.54 Spiral Matrix:
+For me, the matrix is the base of **dynamic programming**, and the best practice to get familiar with it might be Leetcode.54 Spiral Matrix:
 
 Given a matrix `matrix` with `m` rows and `n` columns, return all elements of the matrix in a clockwise spiral order.
 
@@ -168,3 +181,693 @@ public:
     }
 };
 ```
+
+It's obvious that a matrix takes up too much space, but there are many tricks to make the most of it, let alone that sometimes the problem may require us to implement a **O(1) in-place algorithm**. You might find examples in LeetCode.73 & LeetCode.289:
+
+In LeetCode 73, if any element in a **given matrix** is located in a **row or column** that contains a zero, we must set that element to zero as well. 
+
+Being aware that all the elements in relavant rows or columns will be set to zero if there exists at least one zero there, we can traverse all the elements in the matrix and set the first element in the row & column to zero. In this way, when we make the modification altogether after the first traversal, it won't affect other elements when overwriting. Notice that the first row is under the charge of `matrix[0][0]`, but what about the first column if there was zero element among them - that's why we maintain a `flag_col0` here - if there exists zero in the first column, we set it true:
+
+```cpp
+for (int i = 0; i < m; ++i) {
+    if (!matrix[i][0]) {
+        flag_col0 = true;
+    }
+    for (int j = 1; j < n; ++j) {
+        if (!matrix[i][j]) { // zero detected!
+            matrix[i][0] = matrix[0][j] = 0;
+        }
+    }
+}
+```
+
+Then we can freely update the matrix, but one more thing is - since we use the first element in each column as the flags, **we cannot traverse from the first row** - it will overwrite them! Such that we'll just traverse from the last row:
+
+```cpp
+for (int i = m - 1; i >= 0; --i) {
+    for (int j = 1; j < n; ++j) {
+        if (!matrix[i][0] || !matrix[0][j]) {
+            matrix[i][j] = 0;
+        }
+    }
+    if (flag_col0) {
+        matrix[i][0] = 0;
+    }
+}
+```
+
+Similar idea applied in LeetCode.289 - using elements in the given matrix as flags to make the most of the space. But this time something's different, the final state of each element in the matrix is affected by its eight neighbors, and there are 2 states: to survive or die!
+
+Four rules here:
+- If there are **fewer than 2** live cells in any of the 8 positions: live -> dead;
+- If there are **2 or 3** live cells: live -> live;
+- If there are **more than** 3 live cells: live -> dead;
+- If there are **exactly** 3 live cells: dead -> live.
+
+It's easy to get overwhelmed by these 'constraints', but not that tricky! We'll still use two major 'for' loops - one 'for' marking elements in the matrix, the other 'for' updating. A noval measure here is to mark them based on their initial->final states, for instances, these live->dead (1->0) can be -1, and these dead->live can be 2 temporarily, these who remains unchanged stay.
+
+I won't provide code snippets here since the idea is similar.
+
+---
+
+## Hash Tables
+
+Hash table is known as a super effient data structure in terms of searching, deleting or inserting an element.
+
+### Basic Ops
+
+Normally, there are **three ways** to implement it:
+
+```cpp
+// simple key-value style in form of array, easy to customize its size
+int hash[10001] = {0};
+
+// only key exists, handy to use when simply need to record some numbers, it saves space as well
+unordered_set<int> set;
+
+// standard implementation
+unordered_map<int, int> map;
+```
+
+**CRUD**:
+
+```cpp
+// create (insert)
+hash[key] = val;
+set.insert(key); // or use .emplace()
+map[key] = val;
+
+//read
+hash[key];
+// returns 1 or 0:
+set.count(key);
+map.count(key);
+// returns a pointer (using iterator):
+if (set.find(key) != set.end()) {}
+if (map.find(key) != map.end()) {}
+
+// update
+hash[key] = new_val;
+// *no value for set*
+map[key] = new_val;
+
+// delete
+hash[key] = 0; // simply set to zero
+set.erase(key);
+map.erase(key);
+```
+
+If you aim at time effiency, it's almost the 1st choice - taking space as a payoff, though. For the use of `unordered_map`, it's true that it represents a mapping relationship, but **only one-way from key to value**. This is because the hash table is efficient only when you search for keys (their uniqueness), and its values can be same.
+Relavant ideas can be found in LeetCode.290:
+
+When `pattern = "abba"`, `s = "dog cat cat dog"`, you need to determine if they match each other...
+
+```cpp
+unordered_map<char, string> p2s;
+unordered_map<string, char> s2p;
+
+/* ... */
+
+if (s2p.count(cword) && s2p[cword] != ch) return false;
+if (p2s.count(ch) && p2s[ch] != cword) return false;
+```
+where `ch` and `cword` are elements of the strings `pattern` and `s`, respectively.
+
+### Using Iterator for Traversal
+
+We usually traverse the hash table with an iterator in the form of:
+
+```cpp
+unordered_map<string, int> pos;
+string str;
+auto it = pos.find(str);
+if (it == pos.end()) {} // means that if str exists in the pos
+```
+
+Based on this, we can visit the value of the target string in the hash table correspondingly, such as: `pos[it->second]`.
+
+
+## Intervals
+
+In LeetCode, the intervals are usually in the form of `vector<int>` with only two elements to indicate the start and the end. Beyond this, a `vector<vector<int>>` is given by the problems to store the intervals as elements.
+
+There are times when we need to sort the target array in a certain order (normally non-decreasing in LeetCode):
+
+```cpp
+sort(str.begin(), str.end());
+```
+
+This simple line of code will just sort the `str` in non-decreasing order, but notice that for an interval like `[[1,6],[2,8],[3,4]]`, it will first compare the leftmost element in each element list (e.g. `1` in `[1,6]`) and then the second and so on...
+
+But what about we need to customize the comparison criteria - the answer is an embedded lambda function, for instance:
+
+```cpp
+sort(points.begin(), points.end(), [](const vector<int>& u, const vector<int>& v) {
+    return u[1] < v[1];
+});
+```
+
+This means that the comparing process will initially compare the second element in each `vector` element. For the syntax, `[]` is to note that it is followed by a lambda expression, and the two `const vector<int>&` are set for two temporary containers in `vector<int>` to receive the `[1,6]`, `[2,8]`, etc..
+
+In LeetCode.452, this sorting technique is applied in a very clever way. The problem is aiming to pop the balloons using the fewest number of arrows, in this context, **the balloons are actually the intervals** and the so-called "arrows" are like counters that appear in overlapping intervals (but notice that each interval can be only counted once).
+
+Here, we sort these balloons according to their right endpoints (as the code provided above), then we maintain a variable `pos` to record the right endpoint of the current interval we're looking at. We'll start at the leftmost interval and check **how many intervals overlap with it** (normal traversal order), once we encounter one that can't overlap, we update the `pos` and increase the number of "arrows":
+
+```cpp
+int ans = 1;
+int pos = points[0][1]; // flag the right endpoint of the first interval
+for(int i = 0; i < points.size(); i++) {
+    if(points[i][0] > pos) {
+        ans++;
+        pos = points[i][1];
+    }
+}
+```
+
+---
+
+## Stacks
+
+The `stack<int> st;` in C++ is mainly designed for **semantic constraints**, normally we can see people using `vector<int> stack;`, which also works well - but is not in secure encapsulation, meaning that all the values inside can be modified in a way that violates the concept of stack.
+
+### LeetCode.224 Basic Calculator (with *, /)
+
+The solution provided below applies a classic **double-stack** strategy, one for storing the numbers (digits), one for the operators. But considering that there might be **unary operators** in the given string (such as `-3`, `+5`), we'll add a `0` before them to make them binary operators at the very beginning.
+
+After that, we maintain a `priority` hash table in `unoredered_map<char, int>` to record the precedence level for each operator, which ensures `*` and `/` take higher priority than `+` and `-` inherently.
+
+The `isOperator` and `calc` are embeded functions in **lambda expression**.
+
+Lastly, we traverse the string and check if the current character is a digit or an operator or a bracket:
+- if it's a digit, we go on to check and piece all the continuous digits together into the `num` and store it into the stack `nums`.
+- if it's an operator, we should check if its priority is higher than these stored in the stack `op`, if not, we finish all these caculation and then push it into the stack. This can ensure all the operators stored in the stack are in a order that strictly follows the priority rule.
+- if it's a `(`, we just directly push it into the stack `op`.
+- if a `)` appears, we finish all the calculation in the stack `op` and pop out the `(` in the end.
+
+Consequently, the element at the top of the stack `nums` in the final state should be the calculator's result.
+
+```cpp
+class Solution {
+public:
+    int calculate(string s) {
+        string t;
+        for (char c : s) { // preprocess the string, add 0 before the unary operators
+            if (c == '+') {
+                if (t.empty() || t.back() == '(') t += "0+";
+                else t.push_back(c);
+            }  else if (c == '-') {
+                if (t.empty() || t.back() == '(') t += "0-";
+                else t.push_back(c);
+            } else if (c != ' ') {
+                t.push_back(c);
+            }
+        }
+        s = t;
+        s.insert(s.begin(), '(');
+        s.push_back(')');
+        int n = s.size();
+        unordered_map<char, int> priority{{'(', 0}, {'+', 1}, {'-', 1}, {'*', 2}, {'/', 2}};
+        stack<long> nums;
+        stack<char> op;
+        long num = 0; // use long type to avoid overflow (for extreme test cases)
+        auto isOperator = [](char c) {
+            return c == '-' || c == '+' || c == '*' || c == '/';
+        };
+
+        auto calc = [](long num1, long num2, char op) -> long { // embedded lambda function for calculation
+            if (op == '+') {
+                return num1 + num2;
+            } else if (op == '-') {
+                return num1 - num2;
+            } else if (op == '*') {
+                return num1 * num2;
+            } else if (op == '/') {
+                return num1 / num2;
+            } else {
+                return 0;
+            }
+        };
+
+        for (int i = 0; i < n; ++i) {
+            char c = s[i];
+            if (isdigit(c)) { // normally piece together and push the number into the stack
+                while (i < n && isdigit(s[i])) {
+                    num = (s[i] - '0')  + num * 10;
+                    ++i;
+                }
+                --i;
+                nums.push(num);
+                num = 0;
+            } else if (isOperator(c)) {
+                while (!op.empty() && priority[c] <= priority[op.top()]) {
+                    long num2 = nums.top(); nums.pop();
+                    long num1 = nums.top(); nums.pop();
+                    char opt = op.top(); op.pop();
+                    nums.push(calc(num1, num2, opt));
+                }
+                op.push(c);
+            } else if (c == ')') {
+                while (!op.empty() && op.top() != '(') {
+                    long num2 = nums.top(); nums.pop();
+                    long num1 = nums.top(); nums.pop();
+                    char opt = op.top(); op.pop();
+                    nums.push(calc(num1, num2, opt));
+                }
+                op.pop();
+            } else if (c == '(') {
+                op.push(c);
+            }
+        }
+
+        return nums.top();
+    }
+};
+```
+
+---
+
+## Linked Lists
+
+We focus on **singly linked list** in this section, the definition of a node is usually anonated in the LeetCode's editor: 
+
+```cpp
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+```
+
+Clear to see that it provides **3 types of initialization**, for default value stored to be `0` and pointer to the next node to be `nullptr` respectively if relavant arguments are not given.
+
+We usually create a **dummy head node** pointing to the head of the given linked list, this ensures **consistent operations** when traversing every node:
+
+```cpp
+ListNode* dummyHead = new ListNode(-1, head); // -1 is the initial value
+```
+
+### Reversing a Linked List in Groups of K (LeetCode.25)
+
+In this problem, we gonna reverse the given linked list, every `k` nodes form a group (reversal unit), and the remaining nodes in the last should be left there unchanged.
+
+```cpp
+class Solution {
+public:
+    // in-place pointer rewiring
+    pair<ListNode*, ListNode*> myReverse(ListNode* head, ListNode* tail) {
+        ListNode* prev = tail->next;
+        ListNode* p = head;
+        while (prev != tail) { // after the reversing, prev will point to tail
+            ListNode* nex = p->next;
+            p->next = prev;
+            prev = p;
+            p = nex;
+        }
+        return {tail, head};
+    }
+    ListNode* reverseKGroup(ListNode* head, int k) {
+        ListNode* dummyHead = new ListNode(0, head); // dummyHead, head will move on as the left endpoint of the k
+        ListNode* pre = dummyHead;
+
+        while (head) { // violets when there are exactly k times the number of nodes in total
+            ListNode* tail = pre;
+            for (int i = 0; i < k; ++i) { // check if there are k nodes left
+                tail = tail->next;
+                if (!tail) { // if the number of nodes is less than k
+                    return dummyHead->next;
+                }
+            }
+            tie(head, tail) = myReverse(head, tail); // receive the return values
+            pre->next = head; // need to connect the head to the main linked list
+            pre = tail; // set pre to the node before the next k
+            head = tail->next; // the new head of the next k
+        }
+        return dummyHead->next;
+    }
+};
+```
+
+The `myReverse` function is designed as an **in-place algorithm** that reverses all nodes between the given `head` and `tail` nodes. It will initially redirect the first node in the `k` interval to the next node outside, and then iteratively make all the remaining nodes point to their previous ones.
+
+Notice that the `while` loop's stop criteria is `prev != tail`. Because the pointer `prev` points to the node after the `tail`, and then during a single iteration, it will point to the node that has just been reversed.
+
+In this way, when the loop ends, the interval will connect to the node next the original `tail`, but lose the information of its previous node, so in the main function we should maintain a `pre` node to record the node before the `head`.
+
+
+### Using **Two Pointers** in the Context of Linked Lists
+
+In LeetCode.19, we need to remove the Nth-to-last node in the given linked list. The tricky thing is that we don't know the number of nodes at the beginning unless we traverse the entire linked list once. An easy approach is to use two pointers and utilize **the distance between them** to reach the target node - we keep the distance to be N such that when the second pointer reaches the end (pointing to `nullptr`), the first pointer will naturally points to the node before the target one. 
+
+**Remember that to remove one node in the linked list, we need to operate the node before it**. Then we can: `first->next = first->next->next;`.
+
+Similar idea can be seen in LeetCode.61.
+
+
+### **Backup:** Doubly Linked List in LeetCode.146 - LRU Cache
+
+Initialization of the node:
+
+```cpp
+struct DLinkedNode {
+    int key, value; // 
+    DLinkedNode* prev;
+    DLinkedNode* next;
+    DLinkedNode() : key(0), value(0), prev(nullptr), next(nullptr) {} // default assignment
+    DLinkedNode(int _key, int _value)
+        : key(_key), value(_value), prev(nullptr), next(nullptr) {}
+};
+```
+
+Notice that for initialization of a doubly linked list, we need to create both the head and the tail node.
+
+In this problem, we also initialize an `unordered_map<int, DLinkedNode*> cache` to manually record the relation between a node (val) and the value (key) stored in it for easy searching.
+
+Lastly, it's better to add a destructor to the class considering that we need to allocate the nodes from heap space. This will be automatically triggered at the end of its lifecycle. 
+
+The full code is provided here:
+
+```cpp
+struct DLinkedNode { // def. of node in a double linked list
+    int key, value;
+    DLinkedNode* prev;
+    DLinkedNode* next;
+    DLinkedNode() : key(0), value(0), prev(nullptr), next(nullptr) {}; // shorthand for initialization assignments
+    DLinkedNode(int _key, int _value) : key(_key), value(_value), prev(nullptr), next(nullptr) {};
+};
+
+class LRUCache {
+private:
+    unordered_map<int, DLinkedNode*> cache;
+    DLinkedNode* head;
+    DLinkedNode* tail;
+    int size;
+    int capacity;
+
+public:
+    LRUCache(int _capacity) : capacity(_capacity), size(0) {
+        head = new DLinkedNode();
+        tail = new DLinkedNode();
+        head->next = tail;
+        tail->prev = head;
+    }
+
+    int get(int key) {
+        if (!cache.count(key)) { // if not found
+            return -1;
+        }
+        DLinkedNode* node = cache[key]; // if found, move it to the head
+        moveToHead(node);
+        return node->value;
+    }
+
+    void put(int key, int value) {
+        if (!cache.count(key)) {
+            DLinkedNode* node = new DLinkedNode(key, value);
+            cache[key] = node; // register in the hash table
+            addToHead(node); // add it to the head
+            ++size;
+            if (size > capacity) { // if oversized, remove and delete the tail node
+                DLinkedNode* removed = removeTail();
+                cache.erase(removed->key);
+                delete removed;
+                --size;
+            }
+        } else { // if same node exists, update the value and move it to the head
+            DLinkedNode* node = cache[key];
+            node->value = value;
+            moveToHead(node);
+        }
+    }
+
+    void addToHead(DLinkedNode* node) {
+        node->prev = head;
+        node->next = head->next;
+        head->next->prev = node;
+        head->next = node;
+    }
+
+    void removeNode(DLinkedNode* node) {
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+    }
+
+    void moveToHead(DLinkedNode* node) {
+        removeNode(node);
+        addToHead(node);
+    }
+
+    DLinkedNode* removeTail() {
+        DLinkedNode* node = tail->prev;
+        removeNode(node);
+        return node;
+    }
+    ~LRUCache() { // we need destructor to eliminate the entire dlinked list
+        DLinkedNode* cur = head;
+        while (cur) {
+            DLinkedNode* nxt = cur->next;
+            delete cur;
+            cur = nxt;
+        }
+    }
+};
+```
+
+### **Quick Note**
+
+- [x] Avoid directly manipulate the head node without setting a dummy head - always remember that **DO NOT** lose the head node's address.
+- [x] `!head` == `head != nullptr`.
+- [x] Merely swapping the values of two nodes is not equal to successfully swapping the nodes.
+- [x] Don't forget the destructor when necessarily, especially when an abstract data structure (ADT) class is involved.
+
+---
+
+## Binary Trees
+
+A binary Tree is an ADT, there are implementations of binary trees in forms of arrays, linked lists; or **sub-ADTs** such as binary search tree (BST), AVL, Red-Black Tree.
+
+Normally, the binary tree node is defined as a node in linked list, but with two pointers pointing to its left and right child nodes, respectively. For instance:
+
+```cpp
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+```
+
+### Depth-First Search (DFS)
+
+Both BFS and DFS can be implemented using recursive stack or manual stack, corresponding to the **recursive and iterative implementations**, respectively.
+
+Manually:
+
+- BFS: `queue<TreeNode*> q` + `while(!q.empty())`
+- DFS: `stack<TreeNode*> st` + `while(!st.empty())`
+
+For DFS, there are **pre-order, in-order and post-order** traversals. Here is example code of in-order traversal:
+
+```cpp
+class Solution {
+public:
+    void traversal(TreeNode* cur, vector<int>& vec) {
+        if (cur == NULL) return;
+        // note that you can simple change the order of these three lines of code below to implement pre-order or post-order traversals
+        vec.push_back(cur->val);    // parent
+        traversal(cur->left, vec);  // left child
+        traversal(cur->right, vec); // right child
+    }
+    vector<int> preorderTraversal(TreeNode* root) {
+        vector<int> result;
+        traversal(root, result); // begin with the root node
+        return result;
+    }
+};
+```
+
+To avoid stack overflow issue, we can adopt the iterative approach:
+
+```cpp
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        vector<int> result;
+        stack<TreeNode*> st;
+        TreeNode* cur = root;
+        while (cur != NULL || !st.empty()) {
+            if (cur != NULL) { // use pointer cur to reach the deepest left leaf node first
+                st.push(cur); // push all parent nodes visited into the stack
+                cur = cur->left;                // left child
+            } else {
+                cur = st.top(); // now pop out the nodes to perform a backward traversal, left child node first, then its parent and right child node.
+                st.pop();
+                result.push_back(cur->val);     // parent node
+                cur = cur->right;               // right child
+            }
+        }
+        return result;
+    }
+};
+```
+
+Pre-order and post-order:
+
+```cpp
+class Solution {
+public:
+    vector<int> preorderTraversal(TreeNode* root) {
+        stack<TreeNode*> st;
+        vector<int> result;
+        if (root == NULL) return result;
+        st.push(root);
+        while (!st.empty()) {
+            TreeNode* node = st.top();                       // parent node
+            st.pop();
+            result.push_back(node->val);
+            if (node->right) st.push(node->right);           // right child（exclude the null node）
+            if (node->left) st.push(node->left);             // left child（exclude the null node）
+        }
+        return result;
+    }
+};
+```
+
+And for the post-order, we just need to visit left child before the right child node, based on the pre-order traversal code, and lastly reverse the order of the entire result vector:
+
+```cpp
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode* root) {
+        stack<TreeNode*> st;
+        vector<int> result;
+        if (root == NULL) return result;
+        st.push(root);
+        while (!st.empty()) {
+            TreeNode* node = st.top();
+            st.pop();
+            result.push_back(node->val);
+            if (node->left) st.push(node->left); // here, left first
+            if (node->right) st.push(node->right); // still, ignore null nodes
+        }
+        reverse(result.begin(), result.end()); // lastly, reverse the result
+        return result;
+    }
+};
+
+According to the sequences gained from **in-order and post-order** traversal, we can reconstruct the binary tree. Same rule applies to the comb. of **in-order and pre-order** traversal.
+
+LeetCode.105 asks us to construct a binary tree according to the arrays `preorder` & `inorder` from the corresponding traversals of the same tree. This problem stumped me at first, but there are patterns we could take advantage of:
+
+- The first element in the `preorder` is always the value of the root node.
+- In `inorder` array, we can always split it easily into 3 parts **centered around the element corresponding to the root node** - in this way, all the elements preceding and following it are the nodes in the left child tree and right child tree, respectively.
+- Since it should be easy to infer **the number of nodes in the left child tree or in the right child tree**, we can then apply this information back to the `preorder` array to make the most of the conditions.
+- All these steps still hold true to the subarrays (representing child trees as well), hence a **recursive** function call can be applicable.
+- Lastly, notice that we can maintain an `unordered_map<int, int>` to store the indexes of elements in the `inorder` array for easy searching.
+
+Here is the full code snippets:
+
+```cpp
+class Solution {
+private:
+    vector<int>* pre;
+    vector<int>* in;
+    unordered_map<int, int> mp;
+    TreeNode* build(int preL, int preR, int inL, int inR) {
+        if (preL > preR) return nullptr; // if the left endpoint index bypasses the right endpoint
+        int val = (*pre)[preL]; // equal to preorder[preL], take the 1st element out - the root node
+        TreeNode* root = new TreeNode(val);
+
+        int ink = mp[val]; // look up the index of the root value in inorder vector
+        int prek = preL + ink - inL; // 'ink - inL' is the number of nodes in the LCT, hence prek is the new preR for the LCT
+        TreeNode* left = build(preL + 1, prek, inL, ink - 1);
+        TreeNode* right = build(prek + 1, preR, ink + 1, inR);
+        root->left = left, root->right = right;
+        return root;
+    }
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        pre = &preorder, in = &inorder; // get the address head of two vectors, respectively
+        int n = preorder.size();
+        for (int i = 0; i < n; ++i) mp[inorder[i]] = i; // register all elements in inorder vector
+        return build(0, n - 1, 0, n - 1);
+    }
+};
+```
+
+### Breadth-First Search (BFS)
+
+BFS is also known as **level-order traversal**, and normally we use a queue to store and replace nodes of layers. Here is an example to perform it **from the root to the leaves**:
+
+```cpp
+class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        queue<TreeNode*> q;
+        if (root != NULL) q.push(root);
+        vector<vector<int>> result; // use a 2D vector to maintain the depth information of the tree
+
+        while (!q.empty()) {
+            int size = q.size();
+            vector<int> vec;
+            // each internal traversal, we try to replace all the nodes in the queue with their child nodes
+            // q.size() can change, so we use a fixed variable size
+            for (int i = 0; i < size; i++) {
+                TreeNode* node = q.front();
+                q.pop();
+                vec.push_back(node->val);
+                if (node->left) q.push(node->left);
+                if (node->right) q.push(node->right);
+            }
+            result.push_back(vec); // push the current layer into the result
+        }
+        return result;
+    }
+};
+```
+
+But don't fall into the trap of inertial thinking that we must adopt a queue or stack to perform BFS or DFS, in certain cases, we can cheat by making the most of other nodes that had been visited. Taking level-order traversal as an example for a special case - see LeetCode.117:
+
+In this problem, each tree node also has a `next` pointer that points to its next right node (same depth), if it doesn't exist, set it to `nullptr`.
+
+We can consider a nested `while` loop to implement the level-order traversal. Let's see each level in the binary tree as a linked list, the internal loop needs to connect each node in the current level and notice that we ought to maintain a `dummyHead` node to record their head (same as before) so that every time we finish the connection for one level, we can make the `cur` point to the `dummy` to get deeper to the next level. And since all the nodes in the same level are already connected by their `next` pointers, it's natural to access all the child nodes by accessing their parents.
+
+```cpp
+// struct Node {
+//   int val;
+//   Node *left;
+//   Node *right;
+//   Node *next;
+// }
+
+class Solution {
+public:
+    Node* connect(Node* root) {
+        Node* cur = root;
+        while (cur) {
+            Node* dummy = new Node(0);
+            Node* p = dummy;
+            while (cur) {
+                if (cur->left) { // the null node has been already excluded here
+                    p->next = cur->left; // the first time only modifies dummy’s next, but every subsequent (including the one below) edits real tree nodes' own next
+                    p = p->next; // acts as the tail node in singly linked list
+                }
+                if (cur->right) { // same as above
+                    p->next = cur->right;
+                    p = p->next;
+                }
+                cur = cur->next; // get to the next node in the current level
+            }
+            cur = dummy->next; // get to the leftmost node in the next level
+        }
+        return root;
+    }
+};
+```
+
+- [x] Recall that a `dummyHead` node (`dummy` in the context) together with a `tail` node (`p`) is always necessary to create a singly linked list.
+
+### The **Path** in Binary Tree

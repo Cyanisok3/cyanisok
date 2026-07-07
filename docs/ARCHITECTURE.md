@@ -10,7 +10,7 @@ It combines:
 - A `/chat` frontend integrated into the portfolio.
 - A C++ muduo-based AI Chat Service.
 - A Next.js same-origin API proxy.
-- MySQL and RabbitMQ for backend state and message persistence.
+- MySQL as the source of truth for users and chat messages.
 - Docker Compose for the integrated application stack.
 - Host Nginx, HTTPS, ICP footer, and GitHub Actions self-hosted deployment.
 
@@ -45,7 +45,7 @@ https://cyanisok.cn
         ├── AIApps/ChatServer/
         ├── HttpServer/
         ├── Dockerfile
-        ├── init.sql
+        ├── init.sh
         └── .env.example
 ```
 
@@ -66,9 +66,8 @@ portfolio-web container
   v
 chat-service container :80
   |
-  +--> DashScope-compatible AI API
+  +--> DeepSeek OpenAI-compatible AI API
   +--> MySQL
-  +--> RabbitMQ
   +--> ONNX Runtime image recognizer
 ```
 
@@ -134,6 +133,61 @@ Current collection behavior:
 - Frontmatter is validated with `zod`.
 - MDX is compiled with `remark-gfm` and a custom code metadata plugin.
 
+Rendering pipeline:
+
+```text
+apps/portfolio/content/*.mdx
+  -> apps/portfolio/content-collections.ts
+  -> compileMDX(remark-gfm, remarkCodeMeta, rehypeHeadingIds)
+  -> apps/portfolio/src/app/blog/[slug]/page.tsx
+  -> MDXContent with apps/portfolio/src/mdx-components.tsx
+```
+
+`mdx-components.tsx` maps fenced code blocks through:
+
+```text
+pre -> apps/portfolio/src/components/mdx/code-block.tsx
+```
+
+`CodeBlock` owns the visual block surface and copy action. Shiki owns syntax
+token colors. The site uses local Google Sans Code through:
+
+```text
+apps/portfolio/src/app/layout.tsx
+apps/portfolio/src/app/globals.css
+```
+
+The MDX prose style contract is intentionally centralized in
+`apps/portfolio/src/app/globals.css`:
+
+- Inline code is scoped to non-`pre` code so fenced code is never styled as a pill.
+- Plain text fences keep foreground-based text color in both light and dark modes.
+- Heading emphasis keeps Markdown semantics: `**strong**` is bold, `*em*` is italic.
+- Ordered and unordered list markers are styled with separate valid selectors.
+- `not-prose` scopes should stay explicit; avoid selector forms that compile into
+  empty `:where()` rules.
+
+The table of contents is derived from source MDX in:
+
+```text
+apps/portfolio/src/lib/toc.ts
+```
+
+Current TOC behavior:
+
+- Only `h2` and `h3` headings are included.
+- Fenced code blocks are ignored during TOC extraction.
+- Desktop blog posts use a sticky reading-context TOC card.
+- Mobile blog posts keep a compact non-sticky TOC.
+
+Regression coverage for MDX rendering lives in:
+
+```text
+apps/portfolio/src/lib/mdx-style-contract.test.ts
+apps/portfolio/src/lib/code-language.test.ts
+apps/portfolio/src/lib/toc.test.ts
+```
+
 This document does not define article-writing style. It only records the content system as part of the application architecture.
 
 ## Next API Proxy
@@ -182,6 +236,16 @@ JSON requests: 32 KiB
 Upload requests: 8 MiB
 ```
 
+The chat UI limits selected image files to 5 MiB. Before OpenCV decodes an
+uploaded image, the backend additionally enforces:
+
+```text
+Compressed image data: 6 MiB
+Maximum dimension: 8192 px
+Maximum pixel count: 16 megapixels
+Supported formats: PNG, JPEG, GIF, WebP
+```
+
 ## C++ AI Chat Service
 
 Path:
@@ -195,9 +259,9 @@ The backend contains:
 - `HttpServer`: a lightweight HTTP framework built on muduo.
 - `AIApps/ChatServer`: the actual AI chat application.
 - MySQL integration.
-- RabbitMQ integration.
+- Direct MySQL persistence through domain repositories.
 - ONNX Runtime image recognition.
-- DashScope-compatible chat completion calls.
+- DeepSeek OpenAI-compatible chat completion calls.
 
 The C++ service is API-only. Old standalone HTML pages and page handlers were removed from the supported application surface.
 
@@ -211,6 +275,7 @@ POST /chat/send
 POST /chat/history
 POST /upload/send
 GET  /health
+GET  /ready
 ```
 
 `POST /chat/send` uses Server-Sent Events for streaming responses.
@@ -249,7 +314,7 @@ Operational implication:
 Schema initialization:
 
 ```text
-services/ai-chat-service/init.sql
+services/ai-chat-service/init.sh
 ```
 
 Current tables:
@@ -292,14 +357,13 @@ Services:
 portfolio-web
 chat-service
 mysql
-rabbitmq
 ```
 
 Production exposure:
 
-- `portfolio-web` maps host `3000` to container `3000`.
+- `portfolio-web` binds `127.0.0.1:3000` to container `3000`.
 - `chat-service` is exposed only inside the Docker network.
-- MySQL and RabbitMQ are internal by default.
+- MySQL is internal by default.
 - Public HTTP/HTTPS is handled by host Nginx, not by a Docker Nginx container.
 
 Important service names:
@@ -308,7 +372,6 @@ Important service names:
 portfolio-web -> cyanisok-portfolio
 chat-service  -> cyanisok-ai-chat-service
 mysql         -> cyanisok-ai-chat-mysql
-rabbitmq      -> cyanisok-ai-chat-rabbitmq
 ```
 
 ## Environment Variables
@@ -318,7 +381,7 @@ Root `.env` is used by Docker Compose and must not be committed.
 Important variables:
 
 ```text
-DASHSCOPE_API_KEY
+DEEPSEEK_API_KEY
 AI_MODEL
 AI_API_URL
 AI_REQUEST_TIMEOUT_SECONDS
@@ -327,9 +390,14 @@ AI_STREAM_IDLE_TIMEOUT_SECONDS
 SESSION_COOKIE_SECURE
 MYSQL_USER
 MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD
 MYSQL_DATABASE
-RABBITMQ_USER
-RABBITMQ_PASS
+AI_WORKER_COUNT
+AI_QUEUE_CAPACITY
+CHAT_CONTEXT_MESSAGES
+CHAT_HISTORY_MESSAGES
+CHAT_RETENTION_DAYS
+IMAGE_RECOGNITION_ENABLED
 ```
 
 For the integrated stack, `portfolio-web` receives:
@@ -338,7 +406,7 @@ For the integrated stack, `portfolio-web` receives:
 AI_CHAT_SERVICE_URL=http://chat-service:80
 ```
 
-Do not expose `DASHSCOPE_API_KEY` or any backend credential to client code.
+Do not expose `DEEPSEEK_API_KEY` or any backend credential to client code.
 
 ## Nginx, HTTPS, and ICP
 
@@ -420,23 +488,45 @@ Current workflow behavior:
 
 ```text
 git fetch origin dev
+compare origin/dev with refs/cyanisok/deployed/dev
 git checkout dev
 git reset --hard origin/dev
 docker compose config --quiet
-docker compose build portfolio-web
-docker compose rm -sf portfolio-web
-docker compose up -d --no-deps portfolio-web
+build only the services affected by changed paths
+wait for service health checks
+validate and reload Nginx when deploy/nginx changes
+update refs/cyanisok/deployed/dev only after a successful deployment
 docker compose ps
 ```
 
-This intentionally rebuilds only `portfolio-web` by default.
+Failed or cancelled deployments do not advance the deployment baseline. The next
+run therefore includes every change since the last healthy release.
 
-Reason:
+Before building, the workflow requires a server-local file:
 
-- Most routine changes are frontend/content changes.
-- Rebuilding `chat-service` can be slower and may download model/runtime dependencies.
+```text
+/home/ubuntu/cyanisok/.env
+```
 
-If backend files under `services/ai-chat-service` change, deploy `chat-service` explicitly.
+At minimum it must contain non-placeholder values for:
+
+```text
+DEEPSEEK_API_KEY
+MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD
+```
+
+This file is ignored by Git and is not created from `.env.example`
+automatically.
+
+Backend CI is defined at:
+
+```text
+.github/workflows/backend-ci.yml
+```
+
+It runs for backend changes on `main` and `dev`, builds the C++ service, and
+executes CTest.
 
 ## Local Development
 
@@ -457,6 +547,11 @@ docker compose up --build
 
 For the integrated stack, the public entry is the Next.js app on port `3000`.
 
+When an existing `mysql_data` volume is retained, changing MySQL credentials in
+`.env` does not rotate the users already stored inside MySQL. Update the
+database users first, or deliberately recreate the volume only when its data is
+confirmed disposable.
+
 ## Production Checks
 
 Common server checks:
@@ -471,7 +566,7 @@ Nginx checks:
 
 ```text
 sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl reload nginx || sudo nginx -s reload
 ```
 
 Local-on-server HTTPS check:
@@ -530,4 +625,3 @@ Possible later upgrades:
 - Personal writing-style conditioning based on selected public posts.
 
 Do not over-engineer the RAG layer before the blog corpus becomes large enough to evaluate retrieval quality.
-

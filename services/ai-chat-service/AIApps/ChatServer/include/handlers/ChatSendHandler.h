@@ -3,7 +3,6 @@
 #include <muduo/net/TcpConnection.h>
 
 #include "../../../../HttpServer/include/router/RouterHandler.h"
-#include "../../../HttpServer/include/utils/MysqlUtil.h"
 #include "../ChatServer.h"
 
 class ChatSendHandler : public http::router::RouterHandler
@@ -15,5 +14,4 @@ public:
     void handleStream(const muduo::net::TcpConnectionPtr& conn, const http::HttpRequest& req);
 private:
     ChatServer* server_;
-    http::MysqlUtil     mysqlUtil_;
 };

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTrustedClientIp } from "@/lib/client-ip";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,11 +72,7 @@ function jsonError(message: string, status: number) {
 }
 
 function clientIp(request: NextRequest) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
-  }
-  return request.headers.get("x-real-ip") || "unknown";
+  return getTrustedClientIp(request.headers);
 }
 
 function checkRateLimit(request: NextRequest, routeKey: string, limit: number) {
@@ -206,6 +203,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
       body,
       redirect: "manual",
       cache: "no-store",
+      signal: request.signal,
     });
 
     if (route.streaming) {

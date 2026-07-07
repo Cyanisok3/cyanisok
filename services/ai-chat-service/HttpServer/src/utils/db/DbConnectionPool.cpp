@@ -33,11 +33,7 @@ void DbConnectionPool::init(const std::string& host,
     LOG_INFO << "Database connection pool initialized with " << poolSize << " connections";
 }
 
-DbConnectionPool::DbConnectionPool()
-{
-    checkThread_ = std::thread(&DbConnectionPool::checkConnections, this);
-    checkThread_.detach();
-}
+DbConnectionPool::DbConnectionPool() = default;
 
 DbConnectionPool::~DbConnectionPool()
 {
@@ -49,20 +45,23 @@ DbConnectionPool::~DbConnectionPool()
     LOG_INFO << "Database connection pool destroyed";
 }
 
-std::shared_ptr<DbConnection> DbConnectionPool::getConnection()
+std::shared_ptr<DbConnection> DbConnectionPool::getConnection(
+    std::chrono::milliseconds timeout)
 {
     std::shared_ptr<DbConnection> conn;
     {
         std::unique_lock<std::mutex> lock(mutex_);
 
-        while (connections_.empty())
+        if (!initialized_)
         {
-            if (!initialized_)
-            {
-                throw DbException("Connection pool not initialized");
-            }
-            LOG_INFO << "Waiting for available connection...";
-            cv_.wait(lock);
+            throw DbException("Connection pool not initialized");
+        }
+
+        if (!cv_.wait_for(lock, timeout, [this] {
+                return !connections_.empty();
+            }))
+        {
+            throw DbException("Timed out waiting for a database connection");
         }
 
         conn = connections_.front();
@@ -99,54 +98,6 @@ std::shared_ptr<DbConnection> DbConnectionPool::getConnection()
 std::shared_ptr<DbConnection> DbConnectionPool::createConnection()
 {
     return std::make_shared<DbConnection>(host_, user_, password_, database_);
-}
-
-void DbConnectionPool::checkConnections()
-{
-    while (true)
-    {
-        try
-        {
-            std::vector<std::shared_ptr<DbConnection>> connsToCheck;
-            {
-                std::unique_lock<std::mutex> lock(mutex_);
-                if (connections_.empty())
-                {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    continue;
-                }
-
-                auto temp = connections_;
-                while (!temp.empty())
-                {
-                    connsToCheck.push_back(temp.front());
-                    temp.pop();
-                }
-            }
-
-            for (auto& conn : connsToCheck)
-            {
-                if (!conn->ping())
-                {
-                    try
-                    {
-                        conn->reconnect();
-                    }
-                    catch (const std::exception& e)
-                    {
-                        LOG_ERROR << "Failed to reconnect: " << e.what();
-                    }
-                }
-            }
-
-            std::this_thread::sleep_for(std::chrono::seconds(60));
-        }
-        catch (const std::exception& e)
-        {
-            LOG_ERROR << "Error in check thread: " << e.what();
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-    }
 }
 
 } // namespace db

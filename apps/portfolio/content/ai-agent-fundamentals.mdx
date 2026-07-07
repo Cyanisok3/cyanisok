@@ -1,0 +1,135 @@
+---
+title: "Few More Steps from LLM - The Agentic AI Paradiagm"
+publishedAt: "2025-07-07"
+updatedAt: "2026-07-07"
+author: "Cyan Liu"
+summary: "LLMs have learned to answer, now they need to act. This blog contains notes I took alongside my learning progress on agentic AI."
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+# Agent Should Be Able to Manage Tasks Itself Around a Goal
+
+## Before AgentRunner.run()
+
+### Client side
+
+`<cli/commands/run.py>`
+
+```text
+SocketClient.connect()
+  -> Opens a TCP connection to the core process
+
+client.on_event(on_event)
+create_task(client.run_event_loop())
+
+send_command("event.subscribe", topics...)
+send_command("agent.run", {"goal": goal})
+```
+
+The client first connects to the core over TCP. It then registers an event handler and starts a background event loop. After that, it subscribes to relevant events and sends the user's goal through `agent.run`.
+
+### Core side
+
+```text
+SocketServer._handle_line()
+  -> json.loads(line)
+  -> JsonRpcRequest.model_validate(raw)
+  -> self._handlers[req.method]
+  -> CoreApp._subscribe_handler / _agent_run_handler
+  -> Writes JsonRpcSuccess back to the client
+```
+
+The core receives NDJSON over TCP, parses each line as JSON-RPC, validates the request, and routes it to the **matching handler**.
+
+## The Main Running Flow and Agent Loop
+
+The main assembly function is `async def run_and_capture()` in `runner.py`.
+
+- It first receives a `run_id` from `_agent_run_handler`, or creates one if needed. It then creates **cache space** in corresponding directory (`~/runs/<run_id>/`) for this run:
+  1. `events.jsonl`: the run-level event log.
+  2. `.tasks/task_*.json`: internal task-state files for this run.
+
+  It also initializes `TaskManager` from `core/task/`.
+
+  The task module gives the agent lightweight planning support during the **Plan-And-Execute (PAO) loop**. The LLM can decide itself when to use `task_*` tools to `create`, `update`, `list`, or `get` tasks. These tools are like adapters around the shared `TaskManager`.
+
+- Next, `EventBus` is initialized from `core/bus/`, together with any external handlers.
+
+  `core/bus` and `core/events` together implement in-process pub-sub. The bus layer defines **command, event, and envelope models**; the event layer provides the actual event bus in `core/events/bus.py` and the writer for `events.jsonl`.
+
+  `core/transport`, by contrast, is responsible for actual network communication: TCP, NDJSON, and JSON-RPC.
+
+- `ExecutionContext` from `core/context.py` is then created for this run. It receives the `goal` from user, current `run_id`, and `max_steps`.
+
+  This is the agent’s working memory across multiple actions, but only limited to a single run temporarily. Its main state is a growing `messages` list, which stores:
+  1. User goal (role: **user**)
+  2. LLM responses (role: **assistant**)
+  3. Tool results (role: **user**)
+
+  It also tracks execution status (`"running" | "success" | "failed"`), allowing `AgentLoop` to determine whether the loop should continue, succeed, or fail.
+
+  Task operations are indirectly added to the context as well: when a `task_create`, `task_update`, or similar tool runs, its `ToolResult.content` is appended to the message history.
+
+  At the moment, `TaskManager` mainly improves visibility and structure through CRUD files under:
+
+  ```text
+  runs/<run_id>/.tasks/task_*.json
+  ```
+
+  It also provides limited dependency tracking between tasks.
+
+- `EventWriter` is initialized and subscribed to the bus. This works like any other handler registered through `bus.subscribe(h)`. Whenever the bus publishes an event, `EventWriter` writes the logs in event model into `events.jsonl`.
+
+- `AnthropicProvider` initializes the LLM provider.
+
+  If `AgentRunner._trace` exists (`_trace: TraceWriter | None`), the provider can be wrapped by `TracingProvider`. This works like a decorator (or wrapper): it keeps the original `chat()`'s behavior by invoking `self._inner.chat()`, while also calling `emit()` to write non-blocking global traces into `daemon.jsonl`.
+
+  These traces mainly cover the Core ↔ LLM interaction.
+
+- `ToolRegistry` is then initialized. It receives the `TaskManager`, so all four task-related tools share the same task-state instance.
+
+- Finally, `AgentLoop` is created with three key dependencies (variables):
+  - [x] `LLMProvider` or `TracingProvider`
+  - [x] `ToolRegistry`
+  - [x] `EventBus`
+
+  The actual execution starts with:
+
+  ```python
+  loop.run(context)
+  ```
+
+  This starts the PAO (ReAct) loop.
+
+  1. In the **plan** phase, the loop calls `llm_provider.chat()` and receives an initial `LlmResponse`.
+  2. In the **observe** phase, it extracts response text and tool-call requests, then appends them to `ExecutionContext`.
+  3. The **act** phase is optional. It runs only when the model requests tool use.
+
+  The current implementation mainly handles two `stop_reason` values:
+
+  - [x] `tool_use`: invoke the requested tools, receive `ToolResult`, and append the results to the context.
+  - [x] `end_turn`: finish the current agent turn.
+
+  Other provider stop reasons are not handled explicitly. In those cases, the run may continue until `max_steps` is reached or another state transition ends it.
+
+After the `while` loop ends, `run_and_capture()` publishes a `RunFinishedEvent` and returns a `RunOutcome`.
+
+### Backup: Event Flow During a Run
+
+```text
+runner / loop / provider / invocation
+  -> bus.publish(event)
+  -> EventWriter.handle(event)              # writes events.jsonl
+  -> CoreApp._trace_event_handler(event)    # writes daemon trace
+  -> IpcEventBroadcaster.handle(event)      # pushes events to CLI/TUI (client)
+```
+
+### Backup: How the CLI Receives Events
+
+```text
+SocketClient.run_event_loop()
+  -> _dispatch(line)
+  -> kind == "event"
+  -> Calls the handler registered by client.on_event(...)
+  -> StdoutPrinter.handle(event)
+```

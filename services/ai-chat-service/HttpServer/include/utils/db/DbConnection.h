@@ -5,10 +5,12 @@
 #include <cppconn/connection.h>
 #include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
+#include <cppconn/statement.h>
 #include <mysql_driver.h>
 #include <mysql/mysql.h>
 #include <muduo/base/Logging.h>
 #include <type_traits>
+#include <utility>
 #include "DbException.h"
 
 namespace http
@@ -32,8 +34,9 @@ public:
     void reconnect();
     void cleanup();
 
-    template<typename... Args>
-    sql::ResultSet* executeQuery(const std::string& sql, Args&&... args)
+    template<typename Callback, typename... Args>
+    auto query(const std::string& sql, Callback&& callback, Args&&... args)
+        -> decltype(callback(std::declval<sql::ResultSet&>()))
     {
         std::lock_guard<std::mutex> lock(mutex_);
         try
@@ -42,12 +45,13 @@ public:
                 conn_->prepareStatement(sql)
             );
             bindParams(stmt.get(), 1, std::forward<Args>(args)...);
-            return stmt->executeQuery();
+            std::unique_ptr<sql::ResultSet> result(stmt->executeQuery());
+            return callback(*result);
         }
         catch (const sql::SQLException& e)
         {
             LOG_ERROR << "Query failed: " << e.what() << ", SQL: " << sql;
-            throw DbException(e.what());
+            throw DbException(e.what(), e.getErrorCode());
         }
     }
 
@@ -66,7 +70,36 @@ public:
         catch (const sql::SQLException& e)
         {
             LOG_ERROR << "Update failed: " << e.what() << ", SQL: " << sql;
-            throw DbException(e.what());
+            throw DbException(e.what(), e.getErrorCode());
+        }
+    }
+
+    template<typename... Args>
+    long long executeInsert(const std::string& sql, Args&&... args)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        try
+        {
+            std::unique_ptr<sql::PreparedStatement> stmt(
+                conn_->prepareStatement(sql)
+            );
+            bindParams(stmt.get(), 1, std::forward<Args>(args)...);
+            stmt->executeUpdate();
+
+            std::unique_ptr<sql::Statement> idStmt(conn_->createStatement());
+            std::unique_ptr<sql::ResultSet> result(
+                idStmt->executeQuery("SELECT LAST_INSERT_ID()")
+            );
+            if (!result->next())
+            {
+                throw DbException("Insert succeeded but no generated id was returned");
+            }
+            return result->getInt64(1);
+        }
+        catch (const sql::SQLException& e)
+        {
+            LOG_ERROR << "Insert failed: " << e.what() << ", SQL: " << sql;
+            throw DbException(e.what(), e.getErrorCode());
         }
     }
 
@@ -96,9 +129,17 @@ private:
         {
             stmt->setString(index, std::string(std::forward<T>(value)));
         }
-        else if constexpr (std::is_arithmetic_v<ValueType>)
+        else if constexpr (std::is_same_v<ValueType, bool>)
         {
-            stmt->setString(index, std::to_string(value));
+            stmt->setBoolean(index, value);
+        }
+        else if constexpr (std::is_integral_v<ValueType>)
+        {
+            stmt->setInt64(index, static_cast<int64_t>(value));
+        }
+        else if constexpr (std::is_floating_point_v<ValueType>)
+        {
+            stmt->setDouble(index, static_cast<double>(value));
         }
         else
         {

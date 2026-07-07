@@ -1,0 +1,31 @@
+---
+title: "Dependency Management Tools"
+publishedAt: "2025-06-25"
+updatedAt: "2026-06-25"
+author: "Cyan Liu"
+summary: "It's easy to get frustrated when dealing with a large bunch of requirements, where dependency management tools can be useful - but keep sober and don't get them mixed up in your head!"
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+
+## Docker
+
+---
+
+## Astral-sh/uv
+
+### Standard Workflow
+
+```bash
+uv init # initialize the project
+uv venv # create a virtual environment for the project
+uv add torch [dependency] # add dependency (e.g., pandas, numpy, etc.)
+uv sync # according to project.toml & uv.lock
+```
+
+Specifically, `uv sync` will do 3 things:
+
+- [x] **Install** missing packages
+- [x] **Upgrade or downgrade** existing packages to the versions specified in the lock file
+- [x] **Remove** unnecessary packages from the virtual environment that are **not listed** in the dependencies
+- [ ] Install your own source code packages into the current .venv (in edit mode), such that it becomes a top-level package in your virtual environment - it can be imported using an absolute path to any directory, and CLI scripts run normally.

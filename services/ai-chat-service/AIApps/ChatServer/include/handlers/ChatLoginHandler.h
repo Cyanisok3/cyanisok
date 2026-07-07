@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../../../HttpServer/include/router/RouterHandler.h"
-#include "../../../HttpServer/include/utils/MysqlUtil.h"
 #include "../ChatServer.h"
 #include "../../../HttpServer/include/utils/JsonUtil.h"
 
@@ -13,9 +12,5 @@ public:
     void handle(const http::HttpRequest& req, http::HttpResponse* resp) override;
 
 private:
-    int queryUserId(const std::string& username, const std::string& password);
-
-private:
     ChatServer* server_;
-    http::MysqlUtil     mysqlUtil_;
 };

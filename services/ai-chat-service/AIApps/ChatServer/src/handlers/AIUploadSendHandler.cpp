@@ -1,11 +1,12 @@
 #include "../include/handlers/AIUploadSendHandler.h"
+#include "../include/AIUtil/ImageValidation.h"
+#include "../include/AIUtil/base64.h"
 
 void AIUploadSendHandler::handle(const http::HttpRequest& req, http::HttpResponse* resp)
 {
     try
     {
         auto session = server_->getSessionManager()->getSession(req, resp);
-        LOG_INFO << "session->getValue(\"isLoggedIn\") = " << session->getValue("isLoggedIn");
         if (session->getValue("isLoggedIn") != "true")
         {
             json errorResp;
@@ -19,17 +20,21 @@ void AIUploadSendHandler::handle(const http::HttpRequest& req, http::HttpRespons
             return;
         }
 
-        int userId = std::stoi(session->getValue("userId"));
-        std::shared_ptr<ImageRecognizer> ImageRecognizerPtr;
+        if (!server_->imageRecognizer_)
         {
-            std::lock_guard<std::mutex> lock(server_->mutexForImageRecognizerMap);
-            if (server_->ImageRecognizerMap.find(userId) == server_->ImageRecognizerMap.end()) {
-                server_->ImageRecognizerMap.emplace(
-                    userId,
-                    std::make_shared<ImageRecognizer>("/root/models/mobilenetv2/mobilenetv2-7.onnx")
-                );
-            }
-            ImageRecognizerPtr = server_->ImageRecognizerMap[userId];
+            json unavailable;
+            unavailable["status"] = "error";
+            unavailable["message"] = "Image recognition is unavailable";
+            const std::string body = unavailable.dump(4);
+            resp->setStatusLine(
+                req.getVersion(),
+                http::HttpResponse::k503ServiceUnavailable,
+                "Service Unavailable");
+            resp->setCloseConnection(false);
+            resp->setContentType("application/json");
+            resp->setContentLength(body.size());
+            resp->setBody(body);
+            return;
         }
 
         auto body = req.getBody();
@@ -44,16 +49,24 @@ void AIUploadSendHandler::handle(const http::HttpRequest& req, http::HttpRespons
         {
             throw std::runtime_error("No image data provided");
         }
+        if (imageBase64.size() > image_validation::kMaxBase64Characters)
+        {
+            throw std::runtime_error("Image exceeds the 6MB encoded size limit");
+        }
 
         std::string decodedData = base64_decode(imageBase64);
         std::vector<uchar> imgData(decodedData.begin(), decodedData.end());
-        std::string className = ImageRecognizerPtr->PredictFromBuffer(imgData);
+        ImageRecognizer::PredictionResult prediction;
+        {
+            std::lock_guard<std::mutex> lock(server_->imageRecognizerMutex_);
+            prediction = server_->imageRecognizer_->PredictFromBuffer(imgData);
+        }
 
         json successResp;
         successResp["success"] = "ok";
         successResp["filename"] = filename;
-        successResp["class_name"] = className;
-        successResp["confidence"] = 0.95;
+        successResp["class_name"] = prediction.className;
+        successResp["confidence"] = prediction.confidence;
 
         std::string successBody = successResp.dump(4);
 

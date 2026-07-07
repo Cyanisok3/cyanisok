@@ -5,7 +5,6 @@ void ChatHistoryHandler::handle(const http::HttpRequest& req, http::HttpResponse
     try
     {
         auto session = server_->getSessionManager()->getSession(req, resp);
-        LOG_INFO << "session->getValue(\"isLoggedIn\") = " << session->getValue("isLoggedIn");
         if (session->getValue("isLoggedIn") != "true")
         {
             json errorResp;
@@ -20,15 +19,9 @@ void ChatHistoryHandler::handle(const http::HttpRequest& req, http::HttpResponse
         }
 
         int userId = std::stoi(session->getValue("userId"));
-        std::string username = session->getValue("username");
-        std::vector<AIHelper::ChatMessage> messages;
-        {
-            std::lock_guard<std::mutex> lock(server_->mutexForChatInformation);
-            auto it = server_->chatInformation.find(userId);
-            if (it != server_->chatInformation.end()) {
-                messages = it->second->getMessages();
-            }
-        }
+        const auto messages = server_->chatRepository_.recent(
+            userId,
+            server_->historyMessageLimit_);
 
         json successResp;
         successResp["success"] = true;
@@ -36,7 +29,7 @@ void ChatHistoryHandler::handle(const http::HttpRequest& req, http::HttpResponse
 
         for (size_t i = 0; i < messages.size(); ++i) {
             json msgJson;
-            msgJson["is_user"] = (messages[i].role == AIHelper::ChatRole::User);
+            msgJson["is_user"] = messages[i].isUser;
             msgJson["content"] = messages[i].content;
             successResp["history"].push_back(msgJson);
         }
@@ -52,11 +45,12 @@ void ChatHistoryHandler::handle(const http::HttpRequest& req, http::HttpResponse
     }
     catch (const std::exception& e)
     {
+        LOG_ERROR << "History lookup failed: " << e.what();
         json failureResp;
         failureResp["status"] = "error";
-        failureResp["message"] = e.what();
+        failureResp["message"] = "Unable to load chat history";
         std::string failureBody = failureResp.dump(4);
-        resp->setStatusLine(req.getVersion(), http::HttpResponse::k400BadRequest, "Bad Request");
+        resp->setStatusLine(req.getVersion(), http::HttpResponse::k500InternalServerError, "Internal Server Error");
         resp->setCloseConnection(true);
         resp->setContentType("application/json");
         resp->setContentLength(failureBody.size());

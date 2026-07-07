@@ -3,7 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
-#include <thread>
+#include <chrono>
 #include "DbConnection.h"
 
 namespace http
@@ -26,7 +26,8 @@ public:
              const std::string& database,
              size_t poolSize = 10);
 
-    std::shared_ptr<DbConnection> getConnection();
+    std::shared_ptr<DbConnection> getConnection(
+        std::chrono::milliseconds timeout = std::chrono::seconds(5));
 
 private:
     DbConnectionPool();
@@ -37,8 +38,6 @@ private:
 
     std::shared_ptr<DbConnection> createConnection();
 
-    void checkConnections();
-
 private:
     std::string                               host_;
     std::string                               user_;
@@ -48,7 +47,6 @@ private:
     std::mutex                                mutex_;
     std::condition_variable                   cv_;
     bool                                      initialized_ = false;
-    std::thread                               checkThread_;
 };
 
 } // namespace db

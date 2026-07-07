@@ -3,8 +3,9 @@
 #include "SessionStorage.h"
 #include "../http/HttpRequest.h"
 #include "../http/HttpResponse.h"
+#include <atomic>
+#include <chrono>
 #include <memory>
-#include <random>
 
 namespace http
 {
@@ -32,10 +33,11 @@ private:
     std::string getSessionIdFromCookie(const HttpRequest& req);
     void setSessionCookie(const std::string& sessionId, HttpResponse* resp);
     std::string cookieAttributes() const;
+    int sessionMaxAge() const;
 
 private:
     std::unique_ptr<SessionStorage> storage_;
-    std::mt19937 rng_;
+    std::atomic<long long> nextCleanupAtMs_{0};
 };
 
 } // namespace session

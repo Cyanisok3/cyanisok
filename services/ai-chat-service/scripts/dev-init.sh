@@ -11,15 +11,15 @@ if [ ! -f .env ]; then
     echo "Warning: .env file not found. Copying from .env.example"
     if [ -f .env.example ]; then
         cp .env.example .env
-        echo "Please edit .env and add your DASHSCOPE_API_KEY"
+        echo "Please edit .env and add your DEEPSEEK_API_KEY"
     fi
 fi
 
-# 检查 DASHSCOPE_API_KEY
-if grep -q "your_api_key_here" .env 2>/dev/null; then
+# 检查 DEEPSEEK_API_KEY
+if grep -q "your_deepseek_api_key_here" .env 2>/dev/null; then
     echo ""
     echo "=========================================="
-    echo "IMPORTANT: Please set your DASHSCOPE_API_KEY in .env"
+    echo "IMPORTANT: Please set your DEEPSEEK_API_KEY in .env"
     echo "=========================================="
 fi
 

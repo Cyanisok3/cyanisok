@@ -1,0 +1,19 @@
+services:
+  mock-ai:
+    image: python:3.12-alpine
+    command: ["python", "/tests/mock_ai_server.py"]
+    volumes:
+      - ./tests:/tests:ro
+    networks:
+      - app-network
+
+  app:
+    environment:
+      AI_API_URL: http://mock-ai:8080/v1/chat/completions
+      AI_WORKER_COUNT: "1"
+      AI_QUEUE_CAPACITY: "1"
+      IMAGE_RECOGNITION_ENABLED: ${SMOKE_IMAGE_RECOGNITION_ENABLED:-false}
+      SESSION_COOKIE_SECURE: "false"
+    depends_on:
+      mock-ai:
+        condition: service_started

@@ -2,7 +2,9 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <openssl/rand.h>
 #include <sstream>
+#include <stdexcept>
 
 namespace http
 {
@@ -11,7 +13,6 @@ namespace session
 
 SessionManager::SessionManager(std::unique_ptr<SessionStorage> storage)
     : storage_(std::move(storage))
-    , rng_(std::random_device{}())
 {}
 
 std::shared_ptr<Session> SessionManager::getSession(const HttpRequest& req, HttpResponse* resp)
@@ -27,27 +28,37 @@ std::shared_ptr<Session> SessionManager::getSession(const HttpRequest& req, Http
     if (!session || session->isExpired())
     {
         sessionId = generateSessionId();
-        session = std::make_shared<Session>(sessionId, this);
+        session = std::make_shared<Session>(sessionId, this, sessionMaxAge());
         setSessionCookie(sessionId, resp);
     }
-    else
-    {
-        session->setManager(this);
-    }
-
     session->refresh();
     storage_->save(session);
+
+    const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    long long expected = nextCleanupAtMs_.load();
+    if (nowMs >= expected &&
+        nextCleanupAtMs_.compare_exchange_strong(expected, nowMs + 300000))
+    {
+        cleanExpiredSessions();
+    }
+
     return session;
 }
 
 std::string SessionManager::generateSessionId()
 {
-    std::stringstream ss;
-    std::uniform_int_distribution<> dist(0, 15);
-
-    for (int i = 0; i < 32; ++i)
+    unsigned char bytes[32];
+    if (RAND_bytes(bytes, sizeof(bytes)) != 1)
     {
-        ss << std::hex << dist(rng_);
+        throw std::runtime_error("Unable to generate secure session id");
+    }
+
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (unsigned char byte : bytes)
+    {
+        ss << std::setw(2) << static_cast<int>(byte);
     }
     return ss.str();
 }
@@ -69,6 +80,7 @@ void SessionManager::clearSessionCookie(HttpResponse* resp)
 
 void SessionManager::cleanExpiredSessions()
 {
+    storage_->cleanExpired();
 }
 
 std::string SessionManager::getSessionIdFromCookie(const HttpRequest& req)
@@ -99,6 +111,10 @@ std::string SessionManager::getSessionIdFromCookie(const HttpRequest& req)
 
 void SessionManager::setSessionCookie(const std::string& sessionId, HttpResponse* resp)
 {
+    if (resp == nullptr)
+    {
+        return;
+    }
     std::string cookie = "sessionId=" + sessionId + cookieAttributes();
     resp->addHeader("Set-Cookie", cookie);
 }
@@ -112,6 +128,25 @@ std::string SessionManager::cookieAttributes() const
         attributes += "; Secure";
     }
     return attributes;
+}
+
+int SessionManager::sessionMaxAge() const
+{
+    const char* raw = std::getenv("SESSION_TTL_SECONDS");
+    if (!raw || raw[0] == '\0')
+    {
+        return 3600;
+    }
+
+    try
+    {
+        int value = std::stoi(raw);
+        return value > 0 ? value : 3600;
+    }
+    catch (...)
+    {
+        return 3600;
+    }
 }
 
 } // namespace session
