@@ -133,6 +133,61 @@ Current collection behavior:
 - Frontmatter is validated with `zod`.
 - MDX is compiled with `remark-gfm` and a custom code metadata plugin.
 
+Rendering pipeline:
+
+```text
+apps/portfolio/content/*.mdx
+  -> apps/portfolio/content-collections.ts
+  -> compileMDX(remark-gfm, remarkCodeMeta, rehypeHeadingIds)
+  -> apps/portfolio/src/app/blog/[slug]/page.tsx
+  -> MDXContent with apps/portfolio/src/mdx-components.tsx
+```
+
+`mdx-components.tsx` maps fenced code blocks through:
+
+```text
+pre -> apps/portfolio/src/components/mdx/code-block.tsx
+```
+
+`CodeBlock` owns the visual block surface and copy action. Shiki owns syntax
+token colors. The site uses local Google Sans Code through:
+
+```text
+apps/portfolio/src/app/layout.tsx
+apps/portfolio/src/app/globals.css
+```
+
+The MDX prose style contract is intentionally centralized in
+`apps/portfolio/src/app/globals.css`:
+
+- Inline code is scoped to non-`pre` code so fenced code is never styled as a pill.
+- Plain text fences keep foreground-based text color in both light and dark modes.
+- Heading emphasis keeps Markdown semantics: `**strong**` is bold, `*em*` is italic.
+- Ordered and unordered list markers are styled with separate valid selectors.
+- `not-prose` scopes should stay explicit; avoid selector forms that compile into
+  empty `:where()` rules.
+
+The table of contents is derived from source MDX in:
+
+```text
+apps/portfolio/src/lib/toc.ts
+```
+
+Current TOC behavior:
+
+- Only `h2` and `h3` headings are included.
+- Fenced code blocks are ignored during TOC extraction.
+- Desktop blog posts use a sticky reading-context TOC card.
+- Mobile blog posts keep a compact non-sticky TOC.
+
+Regression coverage for MDX rendering lives in:
+
+```text
+apps/portfolio/src/lib/mdx-style-contract.test.ts
+apps/portfolio/src/lib/code-language.test.ts
+apps/portfolio/src/lib/toc.test.ts
+```
+
 This document does not define article-writing style. It only records the content system as part of the application architecture.
 
 ## Next API Proxy

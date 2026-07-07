@@ -20,3 +20,18 @@ Important constraints:
 - Do not expose API keys, TLS private keys, or `.env` values to the browser or Git.
 - Do not rebuild `chat-service` on every frontend-only deploy unless backend files changed.
 - Blog content editing is out of scope unless the user explicitly asks for content changes.
+
+Blog and MDX rendering constraints:
+
+- Blog posts are MDX/content-collections backed under `apps/portfolio/content`.
+- Treat MDX display behavior as an application rendering contract, not as article content.
+- For MDX rendering bugs, prefer fixes in `apps/portfolio/src/mdx-components.tsx`,
+  `apps/portfolio/src/components/mdx/`, `apps/portfolio/src/app/globals.css`, or
+  `apps/portfolio/src/lib/` tests before editing posts.
+- Preserve the current prose contract: `CodeBlock` owns fenced-code block surfaces,
+  Shiki owns token colors, inline code styling must stay scoped to non-`pre` code,
+  plaintext fences must stay readable in both themes, and `not-prose` selectors
+  must remain explicit.
+- When changing blog MDX rendering, prose styles, code blocks, or TOC behavior,
+  run `pnpm -C apps/portfolio test`, `pnpm -C apps/portfolio lint`, and
+  `pnpm -C apps/portfolio build`.

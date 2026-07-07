@@ -137,7 +137,13 @@
     @apply bg-background text-foreground;
   }
 
-  /* Shiki dual theme support */
+  /*
+   * MDX prose contract:
+   * - CodeBlock owns the block surface; Shiki owns token colors.
+   * - Plain text fences keep the prose foreground color in both themes.
+   * - Inline code stays scoped to non-pre code so fences are never styled as pills.
+   * - Marker and not-prose selectors stay explicit to avoid empty :where() output.
+   */
   .shiki,
   .shiki span {
     background-color: transparent;
@@ -153,16 +159,17 @@
     @apply leading-relaxed bg-transparent! font-code!;
   }
 
+  .prose pre code {
+    @apply m-0! border-0! rounded-none! bg-transparent! p-0! text-foreground/90!;
+  }
+
   .prose :where(:not(pre) > code) {
     @apply m-0! mx-1! border rounded-md! px-1.5 py-0.5 bg-muted/60 dark:bg-muted/40 text-[13px]! font-code text-foreground/90!;
   }
 
-  .prose code::before, .prose code::after {
+  .prose code::before,
+  .prose code::after {
     @apply content-none!;
-  }
-
-  .prose pre code {
-    @apply m-0! border-0! rounded-none! bg-transparent! p-0! text-foreground/90!;
   }
 
   .prose h1 {
@@ -249,7 +256,7 @@
     @apply mr-2 align-middle!;
   }
 
-  .prose :where(table):not(:where([class~="not-prose"]) *) {
+  .prose :where(table):not(:where([class~="not-prose"] *)) {
     @apply w-full min-w-full;
     border-collapse: separate;
     border-spacing: 0;

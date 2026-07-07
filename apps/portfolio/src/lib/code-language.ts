@@ -1,5 +1,6 @@
 const languageAliases: Record<string, string> = {
   cxx: "cpp",
+  py: "python",
   sh: "bash",
   shell: "bash",
   tex: "latex",
