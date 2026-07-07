@@ -162,7 +162,7 @@
   }
 
   .prose pre code {
-    @apply m-0! border-0! rounded-none! bg-transparent! p-0! text-inherit!;
+    @apply m-0! border-0! rounded-none! bg-transparent! p-0! text-foreground/90!;
   }
 
   .prose h1 {
@@ -213,10 +213,12 @@
     @apply italic! text-foreground/90!;
   }
 
-  .prose :where(ul > li::marker, ol > li::marker):not(
-      :where([class~="not-prose"] *)
-    ) {
+  .prose :where(ul > li):not(:where([class~="not-prose"] *))::marker {
     @apply text-muted-foreground!;
+  }
+
+  .prose :where(ol > li):not(:where([class~="not-prose"] *))::marker {
+    @apply font-medium text-foreground/70!;
   }
 
   .prose blockquote {

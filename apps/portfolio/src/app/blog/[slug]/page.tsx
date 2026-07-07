@@ -218,7 +218,7 @@ export default async function Blog({
           <TableOfContents
             items={tocItems}
             variant="desktop"
-            className="absolute left-[calc(100%+2.5rem)] top-0 w-56"
+            className="absolute bottom-0 left-[calc(100%+2.5rem)] top-0 w-56"
           />
         )}
       </div>
