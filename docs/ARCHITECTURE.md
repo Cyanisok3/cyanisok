@@ -394,6 +394,11 @@ chat-service
 mysql
 ```
 
+Both application images use multi-stage builds. The portfolio runner contains
+the Next.js standalone output, while the chat-service production stage contains
+only its compiled binary, runtime libraries, and image-recognition assets. C++
+compilers, headers, source files, and test binaries remain in the builder stage.
+
 Production exposure:
 
 - `portfolio-web` binds `127.0.0.1:3000` to container `3000`.
