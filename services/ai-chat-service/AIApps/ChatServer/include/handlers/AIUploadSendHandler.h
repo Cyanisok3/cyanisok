@@ -1,14 +1,15 @@
 #pragma once
 
-#include "../../../../HttpServer/include/router/RouterHandler.h"
 #include "../ChatServer.h"
 
-class AIUploadSendHandler : public http::router::RouterHandler
+class AIUploadSendHandler
 {
 public:
     explicit AIUploadSendHandler(ChatServer* server) : server_(server) {}
 
-    void handle(const http::HttpRequest& req, http::HttpResponse* resp) override;
+    void handleStream(
+        const muduo::net::TcpConnectionPtr& conn,
+        const http::HttpRequest& req);
 
 private:
     ChatServer* server_;

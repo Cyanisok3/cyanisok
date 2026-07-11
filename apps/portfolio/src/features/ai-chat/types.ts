@@ -2,8 +2,6 @@ export type ApiError = Error & {
   status?: number;
 };
 
-export type AuthMode = "login" | "register";
-
 export type ActiveView = "chat" | "image";
 
 export type ChatMessage = {

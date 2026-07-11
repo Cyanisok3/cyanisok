@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: cyanisok-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -23,6 +23,13 @@ jobs:
           FORCE_DEPLOY_ALL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
+
+          lock_file="/tmp/cyanisok-production-deploy.lock"
+          exec 9>"$lock_file"
+          if ! flock -w 1800 9; then
+            echo "::error::Another production deployment still holds $lock_file."
+            exit 1
+          fi
 
           cd /home/ubuntu/cyanisok
           git fetch origin dev
@@ -77,25 +84,49 @@ jobs:
           git reset --hard origin/dev
 
           if [[ ! -f .env ]]; then
-            echo "::error file=.env::Missing /home/ubuntu/cyanisok/.env. Copy .env.example to .env on the server and replace all placeholder secrets."
+            echo "::error file=.env::Missing /home/ubuntu/cyanisok/.env. Copy .env.production.example to .env on the server and replace all placeholder secrets."
             exit 1
           fi
 
+          chmod 600 .env
+          if [[ "$(stat -c '%a' .env)" != "600" ]]; then
+            echo "::error file=.env::Production .env must have mode 0600."
+            exit 1
+          fi
+
+          read_env_value() {
+            local key="$1"
+            sed -n "s/^${key}=//p" .env | tail -n 1
+          }
+
           missing_environment=false
           for key in DEEPSEEK_API_KEY MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
-            value="$(sed -n "s/^${key}=//p" .env | tail -n 1)"
+            value="$(read_env_value "$key")"
             if [[ -z "$value" ]]; then
               echo "::error file=.env::Missing required value: $key"
               missing_environment=true
             fi
           done
 
-          if grep -Eq '^(DEEPSEEK_API_KEY=your_|MYSQL_PASSWORD=change-me$|MYSQL_ROOT_PASSWORD=change-root-password$)' .env; then
+          if grep -Eq '^(DEEPSEEK_API_KEY=your_|MYSQL_PASSWORD=(change-me|replace_with_)|MYSQL_ROOT_PASSWORD=(change-root-password|replace_with_))' .env; then
             echo "::error file=.env::Production .env still contains placeholder credentials."
             missing_environment=true
           fi
 
           if [[ "$missing_environment" == "true" ]]; then
+            exit 1
+          fi
+
+          if [[ "$(read_env_value SESSION_COOKIE_SECURE)" != "true" ]]; then
+            echo "::error file=.env::SESSION_COOKIE_SECURE must be true in production."
+            exit 1
+          fi
+          if [[ "$(read_env_value REGISTRATION_ENABLED)" != "false" ]]; then
+            echo "::error file=.env::REGISTRATION_ENABLED must be false in production."
+            exit 1
+          fi
+          if [[ "$(read_env_value AI_MAX_TOKENS)" != "4096" ]]; then
+            echo "::error file=.env::AI_MAX_TOKENS must be 4096 in production."
             exit 1
           fi
 
@@ -115,6 +146,21 @@ jobs:
               fi
               sleep 2
             done
+          }
+
+          ensure_existing_user() {
+            local user_count
+            if ! user_count="$(
+              docker compose exec -T mysql sh -c \
+                'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" -N -s "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM users"'
+            )"; then
+              echo "::error::Unable to verify an existing chat user before disabling public registration."
+              return 1
+            fi
+            if [[ ! "$user_count" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Public registration is disabled, but the users table has no existing account."
+              return 1
+            fi
           }
 
           reload_nginx() {
@@ -140,11 +186,13 @@ jobs:
             docker compose build portfolio-web chat-service
             docker compose up -d --remove-orphans mysql
             wait_for_health cyanisok-ai-chat-mysql mysql
+            ensure_existing_user
             docker compose up -d --remove-orphans chat-service portfolio-web
           else
             if [[ "$backend" == "true" ]]; then
               docker compose up -d mysql
               wait_for_health cyanisok-ai-chat-mysql mysql
+              ensure_existing_user
               docker compose build chat-service
               docker compose up -d --no-deps chat-service
             fi

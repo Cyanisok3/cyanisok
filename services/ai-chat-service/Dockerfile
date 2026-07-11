@@ -74,23 +74,54 @@ WORKDIR /workspace
 CMD ["/bin/bash"]
 
 #===============================================================================
-# Production image - build and run
+# Build and test the production binary
 #===============================================================================
-FROM base AS production
+FROM base AS builder
 
 WORKDIR /project
 COPY . .
 
-# Build
 RUN rm -rf build && mkdir -p build && cd build && \
     cmake .. -DBUILD_AI_APPS=ON && \
     make -j$(nproc) && \
     ctest --output-on-failure
 
+#===============================================================================
+# Production image - runtime dependencies only
+#===============================================================================
+FROM ubuntu:22.04 AS production
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV MYSQL_HOST=mysql
+ENV HTTP_PORT=80
+
+RUN sed -i 's/archive.ubuntu.com/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libcurl4 \
+    libmysqlclient21 \
+    libmysqlcppconn7v5 \
+    libopencv-core4.5d \
+    libopencv-dnn4.5d \
+    libopencv-imgcodecs4.5d \
+    libopencv-imgproc4.5d \
+    libssl3 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /project
+
+COPY --from=builder /project/build/http_server ./http_server
+COPY --from=base /usr/local/lib/libonnxruntime.so* /usr/local/lib/
+COPY --from=base /root/models /root/models
+COPY --from=base /root/imagenet_classes.txt /root/imagenet_classes.txt
+
+RUN ldconfig
+
 EXPOSE ${HTTP_PORT}
 
-# Run with environment variables
-CMD ["sh", "-c", "./build/http_server"]
+CMD ["./http_server"]
 
 #===============================================================================
 # Default target: production

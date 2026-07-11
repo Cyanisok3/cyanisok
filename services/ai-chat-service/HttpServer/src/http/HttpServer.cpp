@@ -20,9 +20,10 @@ HttpServer::HttpServer(int port,
                        bool useSSL,
                        muduo::net::TcpServer::Option option)
     : listenAddr_(port)
-    , server_(&mainLoop_, listenAddr_, name, option)
-    , useSSL_(useSSL)
+    , mainLoop_()
     , httpCallback_(std::bind(&HttpServer::handleRequest, this, std::placeholders::_1, std::placeholders::_2))
+    , useSSL_(useSSL)
+    , server_(&mainLoop_, listenAddr_, name, option)
 {
     initialize();
 }

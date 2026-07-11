@@ -87,7 +87,7 @@ export default function RootLayout({
             <div className="site-background-artwork fixed inset-0 z-0 pointer-events-none" />
             <div className="site-background-overlay fixed inset-0 z-0 pointer-events-none" />
             <div className="relative z-10 max-w-2xl mx-auto py-12 pb-24 sm:py-24 px-6">
-              {children}
+              <main id="main-content">{children}</main>
               <SiteFooter />
             </div>
             <Navbar />

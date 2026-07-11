@@ -9,6 +9,8 @@
 namespace
 {
 
+constexpr std::size_t kMaxQuestionBytes = 8000U;
+
 std::string statusText(http::HttpResponse::HttpStatusCode statusCode)
 {
     switch (statusCode)
@@ -71,23 +73,36 @@ std::string sseEvent(const std::string& eventName, const json& payload)
 }
 
 void sendOnLoop(
-    const muduo::net::TcpConnectionPtr& conn,
+    const std::weak_ptr<muduo::net::TcpConnection>& weakConn,
     const std::string& payload)
 {
-    conn->getLoop()->runInLoop([conn, payload] {
-        if (conn->connected())
+    const auto conn = weakConn.lock();
+    if (!conn)
+    {
+        return;
+    }
+    conn->getLoop()->runInLoop([weakConn, payload] {
+        const auto liveConn = weakConn.lock();
+        if (liveConn && liveConn->connected())
         {
-            conn->send(payload);
+            liveConn->send(payload);
         }
     });
 }
 
-void shutdownOnLoop(const muduo::net::TcpConnectionPtr& conn)
+void shutdownOnLoop(
+    const std::weak_ptr<muduo::net::TcpConnection>& weakConn)
 {
-    conn->getLoop()->runInLoop([conn] {
-        if (conn->connected())
+    const auto conn = weakConn.lock();
+    if (!conn)
+    {
+        return;
+    }
+    conn->getLoop()->runInLoop([weakConn] {
+        const auto liveConn = weakConn.lock();
+        if (liveConn && liveConn->connected())
         {
-            conn->shutdown();
+            liveConn->shutdown();
         }
     });
 }
@@ -117,36 +132,16 @@ std::string generateRequestId()
 
 } // namespace
 
-void ChatSendHandler::handle(
-    const http::HttpRequest& req,
-    http::HttpResponse* resp)
-{
-    const json body = {
-        {"status", "error"},
-        {"message", "This endpoint requires a streaming request"}
-    };
-    const std::string serialized = body.dump(4);
-    server_->packageResp(
-        req.getVersion(),
-        http::HttpResponse::k400BadRequest,
-        "Bad Request",
-        true,
-        "application/json",
-        serialized.size(),
-        serialized,
-        resp);
-}
-
 void ChatSendHandler::handleStream(
     const muduo::net::TcpConnectionPtr& conn,
     const http::HttpRequest& req)
 {
+    int reservedUserId = -1;
     try
     {
-        http::HttpResponse sessionResponse(false);
         const auto session =
-            server_->getSessionManager()->getSession(req, &sessionResponse);
-        if (session->getValue("isLoggedIn") != "true")
+            server_->getSessionManager()->findSession(req);
+        if (!session || session->getValue("isLoggedIn") != "true")
         {
             sendJsonAndClose(
                 conn,
@@ -174,7 +169,7 @@ void ChatSendHandler::handleStream(
             const json parsed = json::parse(req.getBody());
             question = parsed.value("question", "");
         }
-        if (question.empty() || question.size() > 8000)
+        if (question.empty() || question.size() > kMaxQuestionBytes)
         {
             sendJsonAndClose(
                 conn,
@@ -182,7 +177,7 @@ void ChatSendHandler::handleStream(
                 http::HttpResponse::k400BadRequest,
                 {
                     {"status", "error"},
-                    {"message", "Question must be 1-8000 characters"}
+                    {"message", "Question must be 1-8000 UTF-8 bytes"}
                 });
             return;
         }
@@ -199,7 +194,15 @@ void ChatSendHandler::handleStream(
                 });
             return;
         }
+        reservedUserId = userId;
 
+        const auto activeChatLease = std::shared_ptr<void>(
+            nullptr,
+            [server = server_, userId](void*) {
+                server->finishChat(userId);
+            });
+        reservedUserId = -1;
+        const std::weak_ptr<muduo::net::TcpConnection> weakConn = conn;
         const std::string requestId = generateRequestId();
         auto startPromise = std::make_shared<std::promise<void>>();
         const std::shared_future<void> startSignal =
@@ -207,18 +210,15 @@ void ChatSendHandler::handleStream(
 
         const bool submitted = server_->aiExecutor_->trySubmit(
             [server = server_,
-             conn,
+             weakConn,
              userId,
              username,
              question,
              requestId,
+             activeChatLease,
              startSignal] {
+                (void)activeChatLease;
                 startSignal.wait();
-                const auto activeGuard = std::shared_ptr<void>(
-                    nullptr,
-                    [server, userId](void*) {
-                        server->finishChat(userId);
-                    });
 
                 try
                 {
@@ -234,9 +234,9 @@ void ChatSendHandler::handleStream(
 
                     const std::string answer = server->aiHelper_->chatStream(
                         context,
-                        [conn, requestId](const std::string& token) {
+                        [weakConn, requestId](const std::string& token) {
                             sendOnLoop(
-                                conn,
+                                weakConn,
                                 sseEvent(
                                     "delta",
                                     {
@@ -244,8 +244,8 @@ void ChatSendHandler::handleStream(
                                         {"content", token}
                                     }));
                         },
-                        [conn] {
-                            return !conn->connected();
+                        [weakConn] {
+                            return weakConn.expired();
                         });
 
                     server->chatRepository_.append(
@@ -255,7 +255,7 @@ void ChatSendHandler::handleStream(
                         answer,
                         currentTimestampMs());
                     sendOnLoop(
-                        conn,
+                        weakConn,
                         sseEvent(
                             "done",
                             {
@@ -267,24 +267,20 @@ void ChatSendHandler::handleStream(
                 {
                     LOG_ERROR << "Chat request " << requestId
                               << " failed: " << e.what();
-                    if (conn->connected())
-                    {
-                        sendOnLoop(
-                            conn,
-                            sseEvent(
-                                "error",
-                                {
-                                    {"request_id", requestId},
-                                    {"message", "Unable to complete chat request"}
-                                }));
-                    }
+                    sendOnLoop(
+                        weakConn,
+                        sseEvent(
+                            "error",
+                            {
+                                {"request_id", requestId},
+                                {"message", "Unable to complete chat request"}
+                            }));
                 }
-                shutdownOnLoop(conn);
+                shutdownOnLoop(weakConn);
             });
 
         if (!submitted)
         {
-            server_->finishChat(userId);
             sendJsonAndClose(
                 conn,
                 req.getVersion(),
@@ -301,6 +297,10 @@ void ChatSendHandler::handleStream(
     }
     catch (const std::exception& e)
     {
+        if (reservedUserId >= 0)
+        {
+            server_->finishChat(reservedUserId);
+        }
         LOG_WARN << "Invalid chat request: " << e.what();
         sendJsonAndClose(
             conn,

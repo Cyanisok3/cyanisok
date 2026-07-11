@@ -46,7 +46,7 @@ void ChatLoginHandler::handle(const http::HttpRequest& req, http::HttpResponse* 
         const auto user = server_->userRepository_.findByUsername(username);
         if (user && security::verifyPassword(password, user->passwordHash))
         {
-            auto session = server_->getSessionManager()->getSession(req, resp);
+            auto session = server_->getSessionManager()->rotateSession(req, resp);
 
             session->setValue("userId", std::to_string(user->id));
             session->setValue("username", username);

@@ -18,6 +18,20 @@ Important constraints:
 - The C++ service is API-only. Do not restore old standalone HTML pages.
 - Browser code must call same-origin `/api/ai-chat/*`, not the C++ service directly.
 - Do not expose API keys, TLS private keys, or `.env` values to the browser or Git.
+- Keep public registration disabled in production. Do not add a browser registration
+  route or set `REGISTRATION_ENABLED=true` without explicit user authorization.
+- Production configuration starts from `.env.production.example`; keep `.env` mode
+  `0600`, `SESSION_COOKIE_SECURE=true`, and `AI_MAX_TOKENS=4096`.
+- Successful login must rotate the session ID. Keep blocking AI and image work
+  off muduo I/O loops and preserve bounded executor backpressure.
+- Keep `/chat` session probes, history syncs, streams, and uploads abortable and
+  generation-guarded so stale responses cannot replace current UI state.
+- Streaming authentication checks must use `SessionManager::findSession()` so
+  unauthenticated requests do not allocate anonymous sessions.
+- Project videos autoplay muted and preload metadata in ordinary mode. Under
+  `prefers-reduced-motion`, keep autoplay off and expose native controls.
+- In `HttpServer`, `EventLoop` must be declared before `TcpServer` so construction
+  and destruction order remains valid.
 - Do not rebuild `chat-service` on every frontend-only deploy unless backend files changed.
 - Blog content editing is out of scope unless the user explicitly asks for content changes.
 

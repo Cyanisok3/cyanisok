@@ -59,7 +59,7 @@ function TocLink({
       className={cn(
         "group flex min-w-0 items-baseline gap-2 rounded-md px-2 py-1.5 text-sm leading-snug text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         item.depth === 3 && "ml-8 text-xs",
-        isMuted && "text-muted-foreground/65 hover:text-muted-foreground",
+        isMuted && "text-muted-foreground hover:text-foreground",
         isActive && "bg-muted/70 text-foreground shadow-sm",
         className
       )}
@@ -67,7 +67,7 @@ function TocLink({
       {number !== undefined && (
         <span
           className={cn(
-            "font-mono text-[10px] tabular-nums text-muted-foreground/70 group-hover:text-foreground/70",
+            "font-mono text-[10px] tabular-nums text-muted-foreground group-hover:text-foreground",
             isActive && "text-foreground/70"
           )}
         >
@@ -224,7 +224,7 @@ function ContextSectionLink({
 }) {
   return (
     <div className="space-y-1">
-      <div className="px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+      <div className="px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <TocLink
@@ -335,7 +335,7 @@ export function TableOfContents({
             <ListTree className="size-3.5" />
             Contents
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/70">
+          <span className="font-mono text-[10px] text-muted-foreground">
             {items.length} sections
           </span>
         </summary>
