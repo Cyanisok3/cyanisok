@@ -52,7 +52,7 @@ RUN if [ "$(dpkg --print-architecture)" = "arm64" ]; then \
     else \
         ONNX_PKG="onnxruntime-linux-x64-1.16.3.tgz"; \
     fi && \
-    wget -q "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/${ONNX_PKG}" && \
+    wget "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/${ONNX_PKG}" && \
     mkdir -p onnxruntime && tar -xzf "${ONNX_PKG}" -C onnxruntime --strip-components=1 && \
     cp -r onnxruntime/include/* /usr/local/include/ && \
     cp onnxruntime/lib/* /usr/local/lib/ && \
@@ -62,8 +62,8 @@ RUN if [ "$(dpkg --print-architecture)" = "arm64" ]; then \
 # Download MobileNetV2 ONNX model and ImageNet labels
 WORKDIR /root
 RUN mkdir -p models/mobilenetv2 && \
-    wget -q https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-7.onnx -O models/mobilenetv2/mobilenetv2-7.onnx && \
-    wget -q https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt -O /root/imagenet_classes.txt
+    wget https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-7.onnx -O models/mobilenetv2/mobilenetv2-7.onnx && \
+    wget https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt -O /root/imagenet_classes.txt
 
 #===============================================================================
 # Development image
