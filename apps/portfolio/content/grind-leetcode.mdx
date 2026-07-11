@@ -832,7 +832,9 @@ public:
 };
 ```
 
-But don't fall into the trap of inertial thinking that we must adopt a queue or stack to perform BFS or DFS, in certain cases, we can cheat by making the most of other nodes that had been visited. Taking level-order traversal as an example for a special case - see LeetCode.117:
+### Tricks to Apply BFS
+
+Don't fall into the trap of inertial thinking that we must adopt a queue or stack to perform BFS or DFS, in certain cases, we can cheat by making the most of other nodes that had been visited. Taking level-order traversal as an example for a special case - see LeetCode.117:
 
 In this problem, each tree node also has a `next` pointer that points to its next right node (same depth), if it doesn't exist, set it to `nullptr`.
 
@@ -873,4 +875,58 @@ public:
 
 - [x] Recall that a `dummyHead` node (`dummy` in the context) together with a `tail` node (`p`) is always necessary to create a singly linked list.
 
-### The **Path** in Binary Tree
+### The Path in a Binary Tree
+
+A path in a binary tree is defined as a sequence of nodes such that there is **an edge** between every pair of adjacent nodes in the sequence. Each node appears **at most once** in a path. The path contains at least one node and **need not** pass through the root node.
+
+In LeetCode.124, we need to search for a path from a given tree where the sum of all nodes' values appears to be the maximum.
+
+Let's say we've found a path with the maximum sum, the challenge is that how do we ensure if there exists such a **child node** in the path that **both its left child and right child node** are contained as well.
+
+It might sound weird but things can happen all the time. One solution is that we can calculate separately this case where both children of a node are included, and it should be an individual path - therefore, **we won't backpropagate the sum of this path**, this means if we implement recursion, the return value must contain the sum **either** from the left subtree **or** from the right subtree:
+
+```cpp
+return root->val + max(leftMax, rightMax);
+```
+
+Now, for the situation mentioned above:
+
+```cpp
+// containing both the sum from its left subtree and etc..
+int crossSum = root->val + leftMax + rightMax;
+ans = max(ans, crossSum);
+```
+
+I'm pretty sure it's easier to build the code backwards and here is the whole thing:
+
+```cpp
+class Solution {
+private:
+    int ans = INT_MIN;
+    // return: start from root, the max sum that always goes along a single path
+    int dfs(TreeNode* root) {
+        if (!root) return 0;
+        // go down leftside or rightside and discard negative sum (shouldn't be worse)
+        int leftMax = max(dfs(root->left), 0);
+        int rightMax = max(dfs(root->right), 0);
+        // global cross sum: here we make sure it's a valid path for the crossSum because it only passes the root of current subtree once
+        // and don't forget the leftMax and rightMax are all non-negative here
+        // this crossSum will not be backpropagated
+        int crossSum = root->val + leftMax + rightMax;
+        // compare and try to overwrite the max answer every step
+        ans = max(ans, crossSum);
+        // pick the larger path for backpropagation
+        return root->val + max(leftMax, rightMax);
+    }
+public:
+    int maxPathSum(TreeNode* root) {
+        dfs(root);
+        return ans;
+    }
+};
+```
+
+---
+
+## Graphs
+
