@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 
 const navIconClassName =
   "rounded-3xl cursor-pointer size-full bg-background p-0 text-muted-foreground hover:text-foreground hover:bg-muted backdrop-blur-3xl border border-border transition-colors";
+const navLinkClassName =
+  "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,7 +32,10 @@ export default function Navbar() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30">
+    <nav
+      className="pointer-events-none fixed inset-x-0 bottom-4 z-30"
+      aria-label="Primary"
+    >
       <Dock className="z-50 pointer-events-auto relative h-14 p-2 w-fit mx-auto flex gap-2 border bg-card/90 backdrop-blur-3xl shadow-[0_0_10px_3px] shadow-primary/5">
         {DATA.navbar.map((item) => {
           const isExternal = item.href.startsWith("http");
@@ -49,18 +54,28 @@ export default function Navbar() {
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
+                    className={navLinkClassName}
+                    aria-label={item.label}
                   >
                     <DockIcon className={itemClassName}>
-                      <item.icon className="size-full rounded-sm overflow-hidden object-contain" />
+                      <item.icon
+                        className="size-full rounded-sm overflow-hidden object-contain"
+                        aria-hidden
+                      />
                     </DockIcon>
                   </a>
                 ) : (
                   <Link
                     href={item.href}
+                    className={navLinkClassName}
+                    aria-label={item.label}
                     aria-current={isActive ? "page" : undefined}
                   >
                     <DockIcon className={itemClassName} isActive={isActive}>
-                      <item.icon className="size-full rounded-sm overflow-hidden object-contain" />
+                      <item.icon
+                        className="size-full rounded-sm overflow-hidden object-contain"
+                        aria-hidden
+                      />
                     </DockIcon>
                   </Link>
                 )}
@@ -96,9 +111,14 @@ export default function Navbar() {
                         href={social.url}
                         target={isExternal ? "_blank" : undefined}
                         rel={isExternal ? "noopener noreferrer" : undefined}
+                        className={navLinkClassName}
+                        aria-label={name}
                       >
                         <DockIcon className={navIconClassName}>
-                          <IconComponent className="size-full rounded-sm overflow-hidden object-contain" />
+                          <IconComponent
+                            className="size-full rounded-sm overflow-hidden object-contain"
+                            aria-hidden
+                          />
                         </DockIcon>
                       </a>
                     </TooltipTrigger>
@@ -132,6 +152,6 @@ export default function Navbar() {
           </TooltipContent>
         </Tooltip>
       </Dock>
-    </div>
+    </nav>
   );
 }

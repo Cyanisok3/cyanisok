@@ -21,7 +21,8 @@ export function parseSseEvent(block: string) {
 
 export async function sendStreamingChat(
   question: string,
-  onDelta: (content: string) => void
+  onDelta: (content: string) => void,
+  signal?: AbortSignal
 ) {
   const response = await fetch(`${API_ROOT}/chat/send`, {
     method: "POST",
@@ -32,6 +33,7 @@ export async function sendStreamingChat(
     credentials: "same-origin",
     cache: "no-store",
     body: JSON.stringify({ question }),
+    signal,
   });
 
   if (!response.ok) {

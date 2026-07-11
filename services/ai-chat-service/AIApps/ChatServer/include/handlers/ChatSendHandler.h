@@ -2,15 +2,13 @@
 
 #include <muduo/net/TcpConnection.h>
 
-#include "../../../../HttpServer/include/router/RouterHandler.h"
 #include "../ChatServer.h"
 
-class ChatSendHandler : public http::router::RouterHandler
+class ChatSendHandler
 {
 public:
     explicit ChatSendHandler(ChatServer* server) : server_(server) {}
 
-    void handle(const http::HttpRequest& req, http::HttpResponse* resp) override;
     void handleStream(const muduo::net::TcpConnectionPtr& conn, const http::HttpRequest& req);
 private:
     ChatServer* server_;

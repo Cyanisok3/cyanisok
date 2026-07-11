@@ -16,8 +16,9 @@ build/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.production.example
 
 # Local TLS certificates
 cyanisok.cn_nginx/

@@ -126,7 +126,6 @@ private:
 
 private:
     muduo::net::InetAddress                      listenAddr_;
-    muduo::net::TcpServer                        server_;
     muduo::net::EventLoop                        mainLoop_;
     HttpCallback                                 httpCallback_;
     router::Router                               router_;
@@ -136,6 +135,7 @@ private:
     std::unique_ptr<ssl::SslContext>            sslCtx_;
     bool                                         useSSL_;
     std::map<muduo::net::TcpConnectionPtr, std::unique_ptr<ssl::SslConnection>> sslConns_;
+    muduo::net::TcpServer                        server_;
 };
 
 } // namespace http

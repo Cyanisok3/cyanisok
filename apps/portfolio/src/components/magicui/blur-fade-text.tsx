@@ -6,6 +6,7 @@ import { useMemo } from "react";
 
 interface BlurFadeTextProps {
   text: string;
+  as?: "div" | "h1";
   className?: string;
   variant?: {
     hidden: { y: number };
@@ -19,6 +20,7 @@ interface BlurFadeTextProps {
 }
 const BlurFadeText = ({
   text,
+  as: Wrapper = "div",
   className,
   variant,
   duration = 0.4,
@@ -37,7 +39,7 @@ const BlurFadeText = ({
 
   if (animateByCharacter) {
     return (
-      <div className="flex">
+      <Wrapper className="flex">
         {characters.map((char, i) => {
           const charVariants: Variants = {
             hidden: { y: -yOffset, opacity: 0, filter: "blur(8px)" },
@@ -61,12 +63,12 @@ const BlurFadeText = ({
             </motion.span>
           );
         })}
-      </div>
+      </Wrapper>
     );
   }
 
   return (
-    <div className="flex">
+    <Wrapper className="flex">
       <motion.span
         initial={shouldReduceMotion ? false : "hidden"}
         animate="visible"
@@ -80,7 +82,7 @@ const BlurFadeText = ({
       >
         {text}
       </motion.span>
-    </div>
+    </Wrapper>
   );
 };
 

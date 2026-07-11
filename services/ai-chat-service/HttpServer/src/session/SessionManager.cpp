@@ -1,4 +1,5 @@
 #include "../include/session/SessionManager.h"
+#include <cctype>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -17,23 +18,38 @@ SessionManager::SessionManager(std::unique_ptr<SessionStorage> storage)
 
 std::shared_ptr<Session> SessionManager::getSession(const HttpRequest& req, HttpResponse* resp)
 {
-    std::string sessionId = getSessionIdFromCookie(req);
-    std::shared_ptr<Session> session;
-
-    if (!sessionId.empty())
+    auto session = findSession(req);
+    if (!session)
     {
-        session = storage_->load(sessionId);
+        session = createSession(resp);
     }
 
-    if (!session || session->isExpired())
+    return session;
+}
+
+std::shared_ptr<Session> SessionManager::findSession(const HttpRequest& req)
+{
+    cleanExpiredSessionsIfDue();
+
+    const std::string sessionId = getSessionIdFromCookie(req);
+    if (sessionId.empty())
     {
-        sessionId = generateSessionId();
-        session = std::make_shared<Session>(sessionId, this, sessionMaxAge());
-        setSessionCookie(sessionId, resp);
+        return nullptr;
     }
+
+    auto session = storage_->load(sessionId);
+    if (!session)
+    {
+        return nullptr;
+    }
+
     session->refresh();
     storage_->save(session);
+    return session;
+}
 
+void SessionManager::cleanExpiredSessionsIfDue()
+{
     const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     long long expected = nextCleanupAtMs_.load();
@@ -42,7 +58,35 @@ std::shared_ptr<Session> SessionManager::getSession(const HttpRequest& req, Http
     {
         cleanExpiredSessions();
     }
+}
 
+std::shared_ptr<Session> SessionManager::rotateSession(
+    const HttpRequest& req,
+    HttpResponse* resp)
+{
+    const std::string previousSessionId = getSessionIdFromCookie(req);
+    if (!previousSessionId.empty())
+    {
+        const auto previousSession = storage_->load(previousSessionId);
+        if (previousSession)
+        {
+            previousSession->clear();
+        }
+        storage_->remove(previousSessionId);
+    }
+
+    return createSession(resp);
+}
+
+std::shared_ptr<Session> SessionManager::createSession(HttpResponse* resp)
+{
+    const std::string sessionId = generateSessionId();
+    auto session = std::make_shared<Session>(
+        sessionId,
+        this,
+        sessionMaxAge());
+    storage_->save(session);
+    setSessionCookie(sessionId, resp);
     return session;
 }
 
@@ -85,28 +129,40 @@ void SessionManager::cleanExpiredSessions()
 
 std::string SessionManager::getSessionIdFromCookie(const HttpRequest& req)
 {
-    std::string sessionId;
-    std::string cookie = req.getHeader("Cookie");
-
-    if (!cookie.empty())
+    const std::string cookie = req.getHeader("Cookie");
+    size_t start = 0;
+    while (start < cookie.size())
     {
-        size_t pos = cookie.find("sessionId=");
-        if (pos != std::string::npos)
+        const size_t end = cookie.find(';', start);
+        const size_t itemEnd = end == std::string::npos ? cookie.size() : end;
+        const size_t equals = cookie.find('=', start);
+        if (equals != std::string::npos && equals < itemEnd)
         {
-            pos += 10;
-            size_t end = cookie.find(';', pos);
-            if (end != std::string::npos)
+            size_t keyStart = start;
+            while (keyStart < equals &&
+                   std::isspace(static_cast<unsigned char>(cookie[keyStart])))
             {
-                sessionId = cookie.substr(pos, end - pos);
+                ++keyStart;
             }
-            else
+            size_t keyEnd = equals;
+            while (keyEnd > keyStart &&
+                   std::isspace(static_cast<unsigned char>(cookie[keyEnd - 1])))
             {
-                sessionId = cookie.substr(pos);
+                --keyEnd;
+            }
+            if (cookie.substr(keyStart, keyEnd - keyStart) == "sessionId")
+            {
+                return cookie.substr(equals + 1, itemEnd - equals - 1);
             }
         }
-    }
 
-    return sessionId;
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        start = end + 1;
+    }
+    return "";
 }
 
 void SessionManager::setSessionCookie(const std::string& sessionId, HttpResponse* resp)

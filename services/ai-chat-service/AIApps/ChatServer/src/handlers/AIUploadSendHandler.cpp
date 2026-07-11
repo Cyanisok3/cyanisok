@@ -2,49 +2,96 @@
 #include "../include/AIUtil/ImageValidation.h"
 #include "../include/AIUtil/base64.h"
 
-void AIUploadSendHandler::handle(const http::HttpRequest& req, http::HttpResponse* resp)
+namespace
+{
+
+std::string statusText(http::HttpResponse::HttpStatusCode statusCode)
+{
+    switch (statusCode)
+    {
+    case http::HttpResponse::k400BadRequest:
+        return "Bad Request";
+    case http::HttpResponse::k401Unauthorized:
+        return "Unauthorized";
+    case http::HttpResponse::k503ServiceUnavailable:
+        return "Service Unavailable";
+    case http::HttpResponse::k500InternalServerError:
+        return "Internal Server Error";
+    default:
+        return "OK";
+    }
+}
+
+void sendJsonOnLoop(
+    const std::weak_ptr<muduo::net::TcpConnection>& weakConn,
+    const std::string& version,
+    http::HttpResponse::HttpStatusCode statusCode,
+    const json& body)
+{
+    const std::string responseBody = body.dump(4);
+    const std::string httpVersion =
+        version.empty() || version == "Unknown" ? "HTTP/1.1" : version;
+    const std::string response =
+        httpVersion + " " +
+        std::to_string(static_cast<int>(statusCode)) + " " +
+        statusText(statusCode) + "\r\n" +
+        "Connection: close\r\n" +
+        "Content-Type: application/json\r\n" +
+        "Content-Length: " + std::to_string(responseBody.size()) + "\r\n" +
+        "Cache-Control: no-store\r\n\r\n" +
+        responseBody;
+
+    const auto conn = weakConn.lock();
+    if (!conn)
+    {
+        return;
+    }
+    conn->getLoop()->runInLoop([weakConn, response] {
+        const auto liveConn = weakConn.lock();
+        if (liveConn && liveConn->connected())
+        {
+            liveConn->send(response);
+            liveConn->shutdown();
+        }
+    });
+}
+
+} // namespace
+
+void AIUploadSendHandler::handleStream(
+    const muduo::net::TcpConnectionPtr& conn,
+    const http::HttpRequest& req)
 {
     try
     {
-        auto session = server_->getSessionManager()->getSession(req, resp);
-        if (session->getValue("isLoggedIn") != "true")
+        const auto session =
+            server_->getSessionManager()->findSession(req);
+        if (!session || session->getValue("isLoggedIn") != "true")
         {
-            json errorResp;
-            errorResp["status"] = "error";
-            errorResp["message"] = "Unauthorized";
-            std::string errorBody = errorResp.dump(4);
-
-            server_->packageResp(req.getVersion(), http::HttpResponse::k401Unauthorized,
-                "Unauthorized", true, "application/json", errorBody.size(),
-                errorBody, resp);
+            sendJsonOnLoop(
+                conn,
+                req.getVersion(),
+                http::HttpResponse::k401Unauthorized,
+                {{"status", "error"}, {"message", "Unauthorized"}});
             return;
         }
 
-        if (!server_->imageRecognizer_)
+        if (!server_->imageRecognizer_ || !server_->imageExecutor_)
         {
-            json unavailable;
-            unavailable["status"] = "error";
-            unavailable["message"] = "Image recognition is unavailable";
-            const std::string body = unavailable.dump(4);
-            resp->setStatusLine(
+            sendJsonOnLoop(
+                conn,
                 req.getVersion(),
                 http::HttpResponse::k503ServiceUnavailable,
-                "Service Unavailable");
-            resp->setCloseConnection(false);
-            resp->setContentType("application/json");
-            resp->setContentLength(body.size());
-            resp->setBody(body);
+                {
+                    {"status", "error"},
+                    {"message", "Image recognition is unavailable"}
+                });
             return;
         }
 
-        auto body = req.getBody();
-        std::string filename;
-        std::string imageBase64;
-        if (!body.empty()) {
-            auto j = json::parse(body);
-            if (j.contains("filename")) filename = j["filename"];
-            if (j.contains("image")) imageBase64 = j["image"];
-        }
+        const json parsed = json::parse(req.getBody());
+        const std::string filename = parsed.value("filename", "");
+        const std::string imageBase64 = parsed.value("image", "");
         if (imageBase64.empty())
         {
             throw std::runtime_error("No image data provided");
@@ -54,39 +101,67 @@ void AIUploadSendHandler::handle(const http::HttpRequest& req, http::HttpRespons
             throw std::runtime_error("Image exceeds the 6MB encoded size limit");
         }
 
-        std::string decodedData = base64_decode(imageBase64);
-        std::vector<uchar> imgData(decodedData.begin(), decodedData.end());
-        ImageRecognizer::PredictionResult prediction;
+        const std::string version = req.getVersion();
+        const std::weak_ptr<muduo::net::TcpConnection> weakConn = conn;
+        const bool submitted = server_->imageExecutor_->trySubmit(
+            [server = server_,
+             weakConn,
+             version,
+             filename,
+             imageBase64] {
+                if (weakConn.expired())
+                {
+                    return;
+                }
+
+                try
+                {
+                    const std::string decodedData = base64_decode(imageBase64);
+                    const std::vector<uchar> imageData(
+                        decodedData.begin(),
+                        decodedData.end());
+                    const auto prediction =
+                        server->imageRecognizer_->PredictFromBuffer(imageData);
+
+                    sendJsonOnLoop(
+                        weakConn,
+                        version,
+                        http::HttpResponse::k200Ok,
+                        {
+                            {"success", "ok"},
+                            {"filename", filename},
+                            {"class_name", prediction.className},
+                            {"confidence", prediction.confidence}
+                        });
+                }
+                catch (const std::exception& e)
+                {
+                    sendJsonOnLoop(
+                        weakConn,
+                        version,
+                        http::HttpResponse::k400BadRequest,
+                        {{"status", "error"}, {"message", e.what()}});
+                }
+            });
+
+        if (!submitted)
         {
-            std::lock_guard<std::mutex> lock(server_->imageRecognizerMutex_);
-            prediction = server_->imageRecognizer_->PredictFromBuffer(imgData);
+            sendJsonOnLoop(
+                conn,
+                version,
+                http::HttpResponse::k503ServiceUnavailable,
+                {
+                    {"status", "error"},
+                    {"message", "Image service is busy; try again shortly"}
+                });
         }
-
-        json successResp;
-        successResp["success"] = "ok";
-        successResp["filename"] = filename;
-        successResp["class_name"] = prediction.className;
-        successResp["confidence"] = prediction.confidence;
-
-        std::string successBody = successResp.dump(4);
-
-        resp->setStatusLine(req.getVersion(), http::HttpResponse::k200Ok, "OK");
-        resp->setCloseConnection(false);
-        resp->setContentType("application/json");
-        resp->setContentLength(successBody.size());
-        resp->setBody(successBody);
-        return;
     }
     catch (const std::exception& e)
     {
-        json failureResp;
-        failureResp["status"] = "error";
-        failureResp["message"] = e.what();
-        std::string failureBody = failureResp.dump(4);
-        resp->setStatusLine(req.getVersion(), http::HttpResponse::k400BadRequest, "Bad Request");
-        resp->setCloseConnection(true);
-        resp->setContentType("application/json");
-        resp->setContentLength(failureBody.size());
-        resp->setBody(failureBody);
+        sendJsonOnLoop(
+            conn,
+            req.getVersion(),
+            http::HttpResponse::k400BadRequest,
+            {{"status", "error"}, {"message", e.what()}});
     }
 }

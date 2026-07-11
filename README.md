@@ -11,7 +11,8 @@ cyanisok/
 ├── services/
 │   └── ai-chat-service/        # C++ muduo API service for chat and image recognition
 ├── docker-compose.yml          # Integrated local/host deployment
-├── .env.example                # Integrated environment template
+├── .env.example                # Local environment template
+├── .env.production.example     # Hardened production template
 └── README.md
 ```
 
@@ -30,6 +31,12 @@ start the full stack from the repository root:
 docker compose up --build
 ```
 
+Public account creation is disabled by default. The `/chat` UI is sign-in only,
+and production deployment requires at least one existing database user. For a
+fresh service-only development database, temporarily set
+`REGISTRATION_ENABLED=true`, create the initial account through the backend,
+then restore it to `false` and restart the service.
+
 The portfolio is exposed at `http://127.0.0.1:3000`. In production, the
 server's host Nginx or Baota panel should reverse proxy `cyanisok.cn` to that
 address. The C++ chat service and MySQL stay on the internal Docker network.
@@ -43,6 +50,17 @@ cyanisok.cn_nginx/
 ```
 
 This directory is intentionally ignored by Git because it contains private key material.
+
+For production, create the server-local environment file from the hardened
+template and restrict it to the deployment user:
+
+```bash
+cp .env.production.example .env
+chmod 600 .env
+```
+
+Production deployment enforces `SESSION_COOKIE_SECURE=true`,
+`REGISTRATION_ENABLED=false`, and `AI_MAX_TOKENS=4096`.
 
 ## Development
 

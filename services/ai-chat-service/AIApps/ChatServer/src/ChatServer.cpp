@@ -143,6 +143,9 @@ void ChatServer::initializeOptionalImageRecognizer()
             envOrDefault(
                 "IMAGE_LABEL_PATH",
                 "/root/imagenet_classes.txt"));
+        imageExecutor_ = std::make_unique<BoundedExecutor>(
+            1,
+            static_cast<size_t>(readPositiveInt("IMAGE_QUEUE_CAPACITY", 4)));
     }
     catch (const std::exception& e)
     {
@@ -161,7 +164,16 @@ void ChatServer::initializeSession()
 void ChatServer::initializeRouter()
 {
     httpServer_.Post("/login", std::make_shared<ChatLoginHandler>(this));
-    httpServer_.Post("/register", std::make_shared<ChatRegisterHandler>(this));
+    if (readBool("REGISTRATION_ENABLED", false))
+    {
+        httpServer_.Post(
+            "/register",
+            std::make_shared<ChatRegisterHandler>(this));
+    }
+    else
+    {
+        LOG_WARN << "Public registration is disabled";
+    }
     httpServer_.Post("/user/logout", std::make_shared<ChatLogoutHandler>(this));
 
     auto chatSendHandler = std::make_shared<ChatSendHandler>(this);
@@ -173,9 +185,14 @@ void ChatServer::initializeRouter()
             chatSendHandler->handleStream(conn, req);
         });
 
-    httpServer_.Post(
+    auto uploadSendHandler = std::make_shared<AIUploadSendHandler>(this);
+    httpServer_.PostStream(
         "/upload/send",
-        std::make_shared<AIUploadSendHandler>(this));
+        [uploadSendHandler](
+            const muduo::net::TcpConnectionPtr& conn,
+            const http::HttpRequest& req) {
+            uploadSendHandler->handleStream(conn, req);
+        });
     httpServer_.Post(
         "/chat/history",
         std::make_shared<ChatHistoryHandler>(this));
@@ -226,6 +243,10 @@ void ChatServer::stopBackgroundWorkers()
     if (aiExecutor_)
     {
         aiExecutor_->shutdown();
+    }
+    if (imageExecutor_)
+    {
+        imageExecutor_->shutdown();
     }
 }
 

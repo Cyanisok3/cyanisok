@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTrustedClientIp } from "@/lib/client-ip";
+import { TokenBucketRateLimiter } from "@/lib/rate-limiter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,12 +22,6 @@ const ALLOWED_ROUTES: Record<string, AllowedRoute> = {
     target: "/login",
     maxBodyBytes: MAX_JSON_BYTES,
     requestsPerMinute: 20,
-  },
-  register: {
-    method: "POST",
-    target: "/register",
-    maxBodyBytes: MAX_JSON_BYTES,
-    requestsPerMinute: 10,
   },
   logout: {
     method: "POST",
@@ -61,7 +56,7 @@ const ALLOWED_ROUTES: Record<string, AllowedRoute> = {
   },
 };
 
-const rateBuckets = new Map<string, number[]>();
+const rateLimiter = new TokenBucketRateLimiter({ capacity: 10_000 });
 
 type RouteContext = {
   params: Promise<{ path?: string[] }>;
@@ -76,33 +71,8 @@ function clientIp(request: NextRequest) {
 }
 
 function checkRateLimit(request: NextRequest, routeKey: string, limit: number) {
-  const now = Date.now();
-  const windowMs = 60_000;
   const bucketKey = `${clientIp(request)}:${routeKey}`;
-  const recent = (rateBuckets.get(bucketKey) ?? []).filter(
-    (timestamp) => now - timestamp < windowMs
-  );
-
-  if (recent.length >= limit) {
-    rateBuckets.set(bucketKey, recent);
-    return false;
-  }
-
-  recent.push(now);
-  rateBuckets.set(bucketKey, recent);
-
-  if (rateBuckets.size > 1000) {
-    for (const [key, timestamps] of rateBuckets.entries()) {
-      const fresh = timestamps.filter((timestamp) => now - timestamp < windowMs);
-      if (fresh.length === 0) {
-        rateBuckets.delete(key);
-      } else {
-        rateBuckets.set(key, fresh);
-      }
-    }
-  }
-
-  return true;
+  return rateLimiter.consume(bucketKey, limit);
 }
 
 function copyResponseHeaders(source: Response, destination: NextResponse) {

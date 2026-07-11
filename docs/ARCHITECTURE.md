@@ -112,6 +112,19 @@ The app-level route is:
 apps/portfolio/src/app/chat/page.tsx
 ```
 
+The chat frontend keeps asynchronous state local to the feature. Session probes,
+history syncs, streaming responses, and image uploads each use an
+`AbortController` plus a generation guard. A canceled or late request is not
+allowed to replace state produced by a newer request. Streaming text updates are
+batched once per animation frame, and message auto-scroll only follows the latest
+content when the reader is already near the bottom or has just sent a message.
+Chat questions are limited consistently to 8,000 UTF-8 bytes in the browser and
+the C++ service.
+
+Project-card videos preload metadata and autoplay muted and inline during
+ordinary motion settings. When the browser requests reduced motion, autoplay and
+looping are disabled and native controls are shown instead.
+
 ## Blog Content System
 
 Blog posts are collected from:
@@ -210,7 +223,6 @@ The proxy allowlist is intentionally narrow:
 
 ```text
 POST /api/ai-chat/login        -> POST /login
-POST /api/ai-chat/register     -> POST /register
 POST /api/ai-chat/logout       -> POST /user/logout
 POST /api/ai-chat/chat/send    -> POST /chat/send
 POST /api/ai-chat/chat/history -> POST /chat/history
@@ -225,7 +237,7 @@ Proxy responsibilities:
 - Forward response cookies back to the browser.
 - Enforce an endpoint allowlist.
 - Apply request body size limits.
-- Apply a basic in-memory per-IP rate limit.
+- Apply a bounded in-memory per-IP token-bucket rate limit.
 - Preserve `text/event-stream` responses for streaming chat.
 - Avoid exposing backend URLs or API keys to the browser.
 
@@ -236,6 +248,11 @@ JSON requests: 32 KiB
 Upload requests: 8 MiB
 ```
 
+The proxy rate limiter stores at most 10,000 client-route buckets. Each request
+updates one bucket in constant time. At capacity, a new bucket is rejected
+unless the least-recent bucket has been idle for a complete refill window; this
+avoids resetting an active caller's rate limit through eviction.
+
 The chat UI limits selected image files to 5 MiB. Before OpenCV decodes an
 uploaded image, the backend additionally enforces:
 
@@ -243,7 +260,7 @@ uploaded image, the backend additionally enforces:
 Compressed image data: 6 MiB
 Maximum dimension: 8192 px
 Maximum pixel count: 16 megapixels
-Supported formats: PNG, JPEG, GIF, WebP
+Supported formats: PNG, JPEG, WebP
 ```
 
 ## C++ AI Chat Service
@@ -265,11 +282,16 @@ The backend contains:
 
 The C++ service is API-only. Old standalone HTML pages and page handlers were removed from the supported application surface.
 
+`HttpServer` owns its muduo `EventLoop` before constructing `TcpServer`.
+`TcpServer` is declared after the callback-owned connection state, so it is
+destroyed first while those dependencies and the loop are still alive.
+Long-running AI generation and image decoding/inference never run on muduo I/O
+loops.
+
 Supported API routes:
 
 ```text
 POST /login
-POST /register
 POST /user/logout
 POST /chat/send
 POST /chat/history
@@ -277,6 +299,10 @@ POST /upload/send
 GET  /health
 GET  /ready
 ```
+
+`POST /register` is registered only when `REGISTRATION_ENABLED=true`. The
+production value is `false`, and the public Next.js proxy does not expose a
+registration endpoint. Production is therefore sign-in only for existing users.
 
 `POST /chat/send` uses Server-Sent Events for streaming responses.
 
@@ -303,6 +329,15 @@ Secure
 ```
 
 The Next.js proxy forwards the browser `Cookie` header to the backend and forwards backend `Set-Cookie` headers back to the browser.
+
+After successful credential verification, the backend rotates the session ID,
+clears and removes the pre-authentication session, and writes authentication
+state only to the new session. Exact cookie-name parsing prevents similarly
+named cookies from being accepted as `sessionId`.
+
+Streaming chat and upload authentication use `SessionManager::findSession()`.
+This refreshes an existing valid session but never creates one for a request
+that has no valid session cookie.
 
 Operational implication:
 
@@ -384,16 +419,19 @@ Important variables:
 DEEPSEEK_API_KEY
 AI_MODEL
 AI_API_URL
+AI_MAX_TOKENS
 AI_REQUEST_TIMEOUT_SECONDS
 AI_CONNECT_TIMEOUT_SECONDS
 AI_STREAM_IDLE_TIMEOUT_SECONDS
 SESSION_COOKIE_SECURE
+REGISTRATION_ENABLED
 MYSQL_USER
 MYSQL_PASSWORD
 MYSQL_ROOT_PASSWORD
 MYSQL_DATABASE
 AI_WORKER_COUNT
 AI_QUEUE_CAPACITY
+IMAGE_QUEUE_CAPACITY
 CHAT_CONTEXT_MESSAGES
 CHAT_HISTORY_MESSAGES
 CHAT_RETENTION_DAYS
@@ -407,6 +445,13 @@ AI_CHAT_SERVICE_URL=http://chat-service:80
 ```
 
 Do not expose `DEEPSEEK_API_KEY` or any backend credential to client code.
+
+AI chat uses its own bounded executor. Image decoding and ONNX inference use a
+separate fixed single-worker executor with a queue capacity of four by default.
+When either queue is full, the API returns `503` instead of blocking an
+I/O loop or growing work without bound. Worker tasks retain only a weak
+connection reference, so disconnects cancel work without extending socket
+lifetime; socket operations remain scheduled on the connection's muduo loop.
 
 ## Nginx, HTTPS, and ICP
 
@@ -487,11 +532,14 @@ Server project path:
 Current workflow behavior:
 
 ```text
+serialize production runs with a fixed GitHub concurrency group and host flock
 git fetch origin dev
 compare origin/dev with refs/cyanisok/deployed/dev
 git checkout dev
 git reset --hard origin/dev
 docker compose config --quiet
+force .env mode 0600 and validate production-only security values
+verify at least one existing user before deploying a registration-disabled backend
 build only the services affected by changed paths
 wait for service health checks
 validate and reload Nginx when deploy/nginx changes
@@ -516,8 +564,18 @@ MYSQL_PASSWORD
 MYSQL_ROOT_PASSWORD
 ```
 
-This file is ignored by Git and is not created from `.env.example`
-automatically.
+Create this file manually from `.env.production.example`. The workflow forces
+mode `0600`, rejects placeholder credentials, and requires:
+
+```text
+SESSION_COOKIE_SECURE=true
+REGISTRATION_ENABLED=false
+AI_MAX_TOKENS=4096
+```
+
+The workflow also refuses a backend or Compose-stack deployment when the
+`users` table contains no account, preventing a registration-disabled release
+from locking out a fresh installation.
 
 Backend CI is defined at:
 
@@ -587,7 +645,8 @@ x-powered-by: Next.js
 - The C++ backend is API-only and should not regain standalone HTML frontend pages.
 - The browser should only call `/api/ai-chat/*`.
 - The C++ service is stateful because sessions are memory-backed.
-- `SESSION_COOKIE_SECURE` should be `true` in real HTTPS production.
+- Public registration is disabled in production; `/chat` is sign-in only.
+- `SESSION_COOKIE_SECURE` must be `true` in real HTTPS production.
 - TLS private keys and `.env` files must not be committed.
 - Root Docker Compose is the source of truth for integrated deployment.
 - Host Nginx owns ports `80` and `443`; do not add a Docker Nginx service that binds those ports unless the deployment model changes.

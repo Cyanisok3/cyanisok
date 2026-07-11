@@ -16,8 +16,7 @@ export default function Page() {
   >;
 
   return (
-    <>
-      <main className="min-h-dvh flex flex-col gap-14 relative">
+    <div className="min-h-dvh flex flex-col gap-14 relative">
       <section id="hero">
         <div className="mx-auto w-full max-w-2xl">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
@@ -25,6 +24,7 @@ export default function Page() {
             <div className="flex flex-col gap-4 flex-1">
               {/* Name */}
               <BlurFadeText
+                as="h1"
                 delay={BLUR_FADE_DELAY}
                 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight font-afl"
                 yOffset={8}
@@ -177,7 +177,6 @@ export default function Page() {
           <ContactSection />
         </BlurFade>
       </section>
-    </main>
-    </>
+    </div>
   );
 }

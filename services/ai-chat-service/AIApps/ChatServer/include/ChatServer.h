@@ -83,7 +83,7 @@ private:
     std::unique_ptr<AIHelper> aiHelper_;
     std::unique_ptr<BoundedExecutor> aiExecutor_;
     std::unique_ptr<ImageRecognizer> imageRecognizer_;
-    mutable std::mutex imageRecognizerMutex_;
+    std::unique_ptr<BoundedExecutor> imageExecutor_;
 
     std::mutex activeChatsMutex_;
     std::unordered_set<int> activeChats_;

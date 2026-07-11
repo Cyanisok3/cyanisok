@@ -10,8 +10,10 @@ services:
   app:
     environment:
       AI_API_URL: http://mock-ai:8080/v1/chat/completions
+      AI_MAX_TOKENS: "4096"
       AI_WORKER_COUNT: "1"
       AI_QUEUE_CAPACITY: "1"
+      REGISTRATION_ENABLED: ${SMOKE_REGISTRATION_ENABLED:-true}
       IMAGE_RECOGNITION_ENABLED: ${SMOKE_IMAGE_RECOGNITION_ENABLED:-false}
       SESSION_COOKIE_SECURE: "false"
     depends_on:

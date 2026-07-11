@@ -41,6 +41,7 @@ SocketServer._handle_line()
 
 The core receives NDJSON over TCP, parses each line as JSON-RPC, validates the request, and routes it to the **matching handler**.
 
+
 ## The Main Running Flow and Agent Loop
 
 The main assembly function is `async def run_and_capture()` in `runner.py`.
@@ -133,3 +134,38 @@ SocketClient.run_event_loop()
   -> Calls the handler registered by client.on_event(...)
   -> StdoutPrinter.handle(event)
 ```
+
+
+## Recursive Language Model (RLM) & Agentic Reinforcement Learning (ARL)
+
+### "A Minimalist Design" - RLM
+
+"The only tool that a language model should have access to is a coding tool, and all other tools should be embedded inside its coding environment."
+
+The architecture of RLM is simple. For each depth of its recursion, there are mainly two things: the LM (for inference, generating sub-recursion prompts and summarizing answers) & the Environment (e.g. REPL, for executing the queries from LM, accessing external resources and gathering results of sub-tasks). 
+
+"The key insight is that **long prompts** should not be fed into the neural network directly but **should instead be treated as part of the environment** that the LLM can symbolically interact with and launch LLM calls inside of." 
+
+Another opinion is that RLM is the direct marriage of two important axes of model capability - reasoning and tool use. It consists of recursive model calls like a multi-agent system but more inherently stays on the level of language model itself. Remind that "recursive model calls" means their context windows can be chained together to form a longer reasoning process - maybe it really works well somehow..
+
+### ARL is a Post-Training Paradiagm of Agents
+
+Normally it outputs the optimized LLM policy which is likely certain parameters of the models have been changed.
+
+Environments - the training substrate includes:
+
+- Agent (LLM policy)
+- Action Executor (e.g. sandbox, browser, shell, code runner...)
+- World State (e.g. database, file system, broswer DOM...)
+- Observer (state -> tokens)
+- Reward (verifier to judge)
+
+A **rollout** is a complete behavioural trajectory of an agent as it carries out a task within the environment; a **reward** is the training score assigned by the system to the final outcome of that trajectory or the quality of its intermediate behaviours. Agentic RL enables LLM agents to learn to complete multi-step tasks more reliably through numerous cycles of:
+
+```text
+rollout -> reward -> policy update
+```
+
+There are various training frameworks, but normally are all decoupled into basic modules like **verifiers**, **generators** and **trainers** through roughly four processes: generation, scoring, batching, weight update. 
+
+The common paradiagm is to make things asynchronous as possible that is to decouple the generation from the training - anything synchronous leaves GPUs idle for most of the run.

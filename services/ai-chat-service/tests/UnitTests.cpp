@@ -1,7 +1,11 @@
 #include "../AIApps/ChatServer/include/AIUtil/BoundedExecutor.h"
 #include "../AIApps/ChatServer/include/AIUtil/ImageValidation.h"
 #include "../AIApps/ChatServer/include/AIUtil/SseStreamParser.h"
+#include "../HttpServer/include/http/HttpRequest.h"
+#include "../HttpServer/include/http/HttpResponse.h"
 #include "../HttpServer/include/session/Session.h"
+#include "../HttpServer/include/session/SessionManager.h"
+#include "../HttpServer/include/session/SessionStorage.h"
 
 #include <atomic>
 #include <cassert>
@@ -14,6 +18,15 @@
 
 namespace
 {
+
+void addCookie(http::HttpRequest& request, const std::string& cookie)
+{
+    const std::string header = "Cookie: " + cookie;
+    request.addHeader(
+        header.data(),
+        header.data() + 6,
+        header.data() + header.size());
+}
 
 void testSessionConcurrentAccess()
 {
@@ -49,6 +62,64 @@ void testSessionExpiry()
     http::session::Session session("expired", nullptr, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     assert(session.isExpired());
+}
+
+void testSessionRotationInvalidatesPreviousId()
+{
+    auto storage = std::make_unique<http::session::MemorySessionStorage>();
+    http::session::SessionManager manager(std::move(storage));
+
+    http::HttpRequest anonymousRequest;
+    http::HttpResponse anonymousResponse;
+    const auto anonymous = manager.getSession(
+        anonymousRequest,
+        &anonymousResponse);
+    anonymous->setValue("isLoggedIn", "false");
+
+    http::HttpRequest loginRequest;
+    addCookie(loginRequest, "sessionId=" + anonymous->getId());
+    http::HttpResponse loginResponse;
+    const auto authenticated = manager.rotateSession(
+        loginRequest,
+        &loginResponse);
+
+    assert(authenticated->getId() != anonymous->getId());
+    assert(authenticated->getValue("isLoggedIn").empty());
+    assert(anonymous->getValue("isLoggedIn").empty());
+
+    http::HttpRequest staleRequest;
+    addCookie(staleRequest, "sessionId=" + anonymous->getId());
+    http::HttpResponse staleResponse;
+    const auto replacement = manager.getSession(staleRequest, &staleResponse);
+    assert(replacement->getId() != anonymous->getId());
+
+    http::HttpRequest misleadingCookieRequest;
+    addCookie(
+        misleadingCookieRequest,
+        "not_sessionId=" + authenticated->getId());
+    http::HttpResponse misleadingCookieResponse;
+    const auto unrelated = manager.getSession(
+        misleadingCookieRequest,
+        &misleadingCookieResponse);
+    assert(unrelated->getId() != authenticated->getId());
+}
+
+void testSessionLookupDoesNotCreateSession()
+{
+    auto storage = std::make_unique<http::session::MemorySessionStorage>();
+    http::session::SessionManager manager(std::move(storage));
+
+    http::HttpRequest requestWithoutCookie;
+    assert(!manager.findSession(requestWithoutCookie));
+
+    http::HttpResponse response;
+    const auto created = manager.getSession(requestWithoutCookie, &response);
+    http::HttpRequest requestWithCookie;
+    addCookie(requestWithCookie, "sessionId=" + created->getId());
+    assert(manager.findSession(requestWithCookie) == created);
+
+    manager.destroySession(created->getId());
+    assert(!manager.findSession(requestWithCookie));
 }
 
 void testExecutorBackpressure()
@@ -156,17 +227,38 @@ void testOversizedImageIsRejected()
     assert(rejected);
 }
 
+void testGifIsRejected()
+{
+    const std::vector<unsigned char> gifHeader = {
+        'G', 'I', 'F', '8', '9', 'a', 1U, 0U, 1U, 0U
+    };
+
+    bool rejected = false;
+    try
+    {
+        image_validation::validateEncodedImage(gifHeader);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    assert(rejected);
+}
+
 } // namespace
 
 int main()
 {
     testSessionConcurrentAccess();
     testSessionExpiry();
+    testSessionRotationInvalidatesPreviousId();
+    testSessionLookupDoesNotCreateSession();
     testExecutorBackpressure();
     testSseParserAcrossChunkBoundaries();
     testSseParserError();
     testSseParserWithoutCompletionMarker();
     testImageDimensionValidation();
     testOversizedImageIsRejected();
+    testGifIsRejected();
     return 0;
 }
