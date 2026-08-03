@@ -7,6 +7,12 @@ const globalsCss = readFileSync(join(process.cwd(), "src/app/globals.css"), {
 });
 
 describe("MDX prose style contract", () => {
+  it("keeps dark utilities bound to the application theme class", () => {
+    expect(globalsCss).toContain(
+      "@custom-variant dark (&:where(.dark, .dark *));"
+    );
+  });
+
   it("keeps inline code styling separate from fenced code blocks", () => {
     expect(globalsCss).toContain(".prose :where(:not(pre) > code)");
     expect(globalsCss).toContain(".prose pre code");
@@ -41,5 +47,11 @@ describe("MDX prose style contract", () => {
     expect(globalsCss).not.toContain(
       ':not(:where([class~="not-prose"]) *)'
     );
+  });
+
+  it("keeps quote and table text readable in either theme", () => {
+    expect(globalsCss).toContain("text-foreground/90! italic");
+    expect(globalsCss).toContain("font-semibold text-foreground!");
+    expect(globalsCss).toContain("text-foreground/80! border-b");
   });
 });
