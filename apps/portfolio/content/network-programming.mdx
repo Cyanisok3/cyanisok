@@ -50,6 +50,14 @@ Accept: */*
 
 ### HTTP Message Parsing and Encapsulation Module
 
+- `HttpContext`
+
+- `HttpRequest`
+
+- `HttpResponse`
+
+- `HttpServer`
+
 ---
 
 ### Routing Module
@@ -220,6 +228,17 @@ Handlers / ChatServer
 
 **In `DbConnection`**:
 
+1. Initialize database connection (constructor):
+```cpp
+try {
+    sql::mysql:MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+    conn_.reset(dirver->connect(host_, user_, password_));
+    conn_->setSchema(database_);
+} catch (const sql::SQLException& e) {
+    throw DbException(e.what());
+}
+```
+
 1. Two critical functions: 
 ```cpp
 executeQuery(sql, args...);  // SELECT
@@ -237,11 +256,116 @@ std::lock_guard<std::mutex> lock(mutex_);
 
 **`DbConnectionPool` is a process-level singleton instance**
 
+1. Singleton design pattern:
+```cpp
+static DbConnectionPool& getInstance() {
+    static DbConnectionPool instance;
+    return instance;
+}
+
+/* ... */
+
+private:
+    DbConnectionPool();
+    ~DbConnectionPool();
+
+/* ... */
+```
+
+2. Get access to a connection, if none, wait:
+```cpp
+// lock(mutex_) first
+auto conn = connections_.front();
+connections_.pop(); // it's a queue
+
+lock.unlock()
+
+/* check connection and reconnect if conn->ping() failed */
+```
+
+3. Use `conn->ping()` to check connection.
+
+**`MysqlUtil` is a tool class, providing simple APIs to access the database**
+
+1. `static void init(host, user, password, database, poolSize) {}`
+
+2. `sql::ResultSet* executeQuery(sql, args) {}`
+
+3. `int executeUpdate(sql, args) {}`
 
 ---
 
 ### HTTPS Module
 
+```text
+HTTP -- SSL (encode) --> HTTPS (safer, more robust)
+```
 
+**ybrid encryption:**
+```text
+Client --visit port 443--> Server
+Client <--send CA certificate (contains a **public key**)-- Server
+Client → **verify** successfully → generate a **random key** → **encode** the generated key using the public key
+Client --send the encoded random key--> Server
+Server → decode using the **private key** → gain the random key → use this key for **symmetric encryption** communication
+```
+
+**Pros:** 
+1. Data Security
+2. Search Engine Optimization
+3. User Trust
+
+**Cons:** 
+1. Performance Overhead
+2. Certificate Costs
+3. Configuration Complexity & Compatibility Issues
+
+`SslConfig`: 
+1. Certificate configs
+2. Protocol version & cipher list configs
+3. Client verification configs
+4. Session configs
+
+`SslContext`: 
+1. Initialize SSL Context 
+2. Load certificate and private key 
+
+> How to integrate SSL into the HTTP server?
+
+We need to: 
+- Initialize SSL context (create `SslConfig` -init-> `SslContext` -> load certificate & private key) 
+- Manage SSL connection (create `SslConnection` -> invoke `startHandshake` -handshake finished-> handle r/w of the encrypted data) 
+- Configurate the server (`HttpServer::start` -init ssl ctx-> use `SslConnection`) 
+
+`SslConnection` (manage SSL connection, including handshake event & data encryption/decryption).
+
+`HttpServer` needs to: 
+1. Initialize SSL-related configs
+```cpp
+void HttpServer::start(certFile, keyFile) {
+    ssl::SslConfig sslConfig(certFile, keyFile);
+    sslContext_ = ssl:: SslContext(sslConfig);
+    /* 
+        1. init server and start listening
+        2. create SslConnection when connection is established 
+    */
+}
+```
+2. Create `SslConnection` object when new connection is established
+```cpp
+void HttpServer::onConnection(const muduo::net::TcpConnectionPtr& conn);
+```
+3. Determine if HTTPS service is needed everytime when new message is received
+```cpp
+void onMessage(const muduo::net::TcpConnectionPtr& conn,
+                   muduo::net::Buffer* buf,
+                   muduo::Timestamp receiveTime);
+```
+
+**Notes: **
+1. **Reactor** design pattern (epoll loop -> SslConnection -> Http parsing / Router)
+2. **muduo** C++ library
+
+---
 
 ## JSON-RPC Service Framework
