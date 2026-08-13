@@ -8,16 +8,14 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 ---
 
 
-## HTTP Service Framework
+## HTTP-Based Service Transport Layer
 
 Basic components: 
 
-```mdx
 - Request Line
 - Request Head
 - *[EMPTY LINE]*
 - Request Body
-```
 
 GET Method Message Example (Dynamic Router):
 
@@ -100,15 +98,23 @@ Accept: */*
 
 - The Procedure of Register:
 
-`addRegexHandler("GET", "user/:uid", [HanlderPtr])` -> `convertToRegex` converts `:uid` to `^/user/([^/]+)$` ->  ("GET", ^/user/([^/]+)$, [HanlderPtr]) is stored in `std::vector<RouteHandlerObj> regexHandlers_`
+`addRegexHandler("GET", "user/:uid", [HanlderPtr])`  
+-> `convertToRegex` converts `:uid` to `^/user/([^/]+)$`  
+->  `("GET", ^/user/([^/]+)$, [HanlderPtr])` is stored in `std::vector<RouteHandlerObj> regexHandlers_`
 
 - The Procedure of `route()`:
 
-`RouteKey{GET, "/user/666"}` -> execute `.find()` in `handlers_` & `callbacks_` -> FAILED -> tranverse the `regexHandlers_` (check method + regx) -> `if (matched)` (check method + `regex_match()`) -> `extractPathParameters(&matchResult, &request)` -> execute `request.setPathParameters("param1", "666")`
+`RouteKey{GET, "/user/666"}`  
+-> execute `.find()` in `handlers_` & `callbacks_`  
+-> FAILED  
+-> traverse the `regexHandlers_` (check method + regx)  
+-> `if (matched)` using check method & `regex_match()` 
+-> `extractPathParameters(&matchResult, &request)`  
+-> execute `request.setPathParameters("param1", "666")`
 
 Lastly, the router have `req.pathParams["param1"] = "666"` and can call the handler method (where it can access the path parameters) in the object that [HandlerPtr] points to.
 
-> Note: if `user/666/777`, then we also have `req.pathParams["param2"] = "777"`.
+> Note that if `user/666/777`, then we also have `req.pathParams["param2"] = "777"`.
 
 ---
 
@@ -122,7 +128,7 @@ Lastly, the router have `req.pathParams["param1"] = "666"` and can call the hand
 
 **Basic Classes:**
 
-- [x] `Session` (the atomic component)
+- [x] **Session** (the atomic component)
 
 Containing:
 1. `sessionId_`
@@ -130,7 +136,7 @@ Containing:
 3. `maxAge_` & `expiryTime_` : checked by `isExpired()` that is accessible to `SessionManager` & `SessionStorage`
 4. `sessionManager_` : to update the stored sessions by indirectly accessing SessionStorage
 
-- [x] `SessionManager` (create, search, destroy Sessions)
+- [x] **SessionManager** (create, search, destroy Sessions)
 
 Responsible for managing:
 1. `sessionId`
@@ -140,7 +146,7 @@ Note:
 1. The only class have direct access to `SessionStorage`.
 2. Can access cookies from `HttpRequest` to get `sessionId`
 
-- [x] `SessionStorage` (abstract) & `MemorySessionStorage` (memory implementation)
+- [x] **SessionStorage** (abstract) & MemorySessionStorage (memory implementation)
 
 It maintains a `std::unordered_map<std::string, std::shared_ptr<Session>> sessions_`.
 
@@ -301,7 +307,7 @@ lock.unlock()
 HTTP -- SSL (encode) --> HTTPS (safer, more robust)
 ```
 
-**ybrid encryption:**
+**Hybrid encryption:**
 ```text
 Client --visit port 443--> Server
 Client <--send CA certificate (contains a **public key**)-- Server
@@ -333,9 +339,17 @@ Server → decode using the **private key** → gain the random key → use this
 > How to integrate SSL into the HTTP server?
 
 We need to: 
-- Initialize SSL context (create `SslConfig` -init-> `SslContext` -> load certificate & private key) 
-- Manage SSL connection (create `SslConnection` -> invoke `startHandshake` -handshake finished-> handle r/w of the encrypted data) 
-- Configurate the server (`HttpServer::start` -init ssl ctx-> use `SslConnection`) 
+- Initialize SSL context  
+create `SslConfig`  
+--init-> `SslContext`  
+-> load certificate & private key   
+- Manage SSL connection 
+create `SslConnection`  
+-> invoke `startHandshake`  
+--handshake finished-> handle r/w of the encrypted data  
+- Configurate the server  
+`HttpServer::start`  
+--init ssl ctx-> use `SslConnection`
 
 `SslConnection` (manage SSL connection, including handshake event & data encryption/decryption).
 
@@ -357,15 +371,85 @@ void HttpServer::onConnection(const muduo::net::TcpConnectionPtr& conn);
 ```
 3. Determine if HTTPS service is needed everytime when new message is received
 ```cpp
-void onMessage(const muduo::net::TcpConnectionPtr& conn,
+void HttpServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
                    muduo::net::Buffer* buf,
                    muduo::Timestamp receiveTime);
 ```
 
-**Notes: **
+**Notes:**
 1. **Reactor** design pattern (epoll loop -> SslConnection -> Http parsing / Router)
 2. **muduo** C++ library
 
 ---
 
-## JSON-RPC Service Framework
+## What's Next? REST API vs. RESTful API vs. JSON-RPC
+
+Common data formats HTTP protocol can transmit (after the `Content-Type` variable):  
+1. `application/json` — JSON (used by REST‑API, JSON‑RPC)
+2. `application/x‑www‑form‑urlencoded` — URL‑encoded form key‑value pairs
+3. `multipart/form‑data` — Form‑data for file upload and mixed parameters
+4. `application/xml` — XML payload
+5. `text/plain` — Plain text
+6. `text/html` — Hypertext markup
+7. `application/protobuf` — Binary Protobuf (gRPC over HTTP)
+8. `application/yaml` — YAML‑structured data
+9. Raw binary stream: images, videos, archives
+
+```text title="The Hierarchical Tree"
+HTTP‑based Interfaces
+├─ Legacy Form‑based Interfaces
+├─ RPC over‑HTTP (e.g. JSON‑RPC)
+└─ REST‑API (general term for HTTP‑and‑JSON interfaces)
+      ├─ Naive‑style HTTP interfaces
+         (verb‑containing URLs, all‑POST requests)
+      └─ RESTful API
+         (interfaces complying with REST architectural constraints)
+```
+
+### Requirement: fetch the user whose id = 2
+
+**Casual‑style REST API**
+
+- Endpoint: POST /getUserById
+- HTTP method: always POST
+- Parameters are placed inside request‑body
+```json
+{"userId":2}
+```  
+Feature: the URL contains action verb getUserById. One route corresponds to one behaviour.
+
+**Standard RESTful API**
+
+- Endpoint: GET /users/2
+- HTTP method: GET (for resource query)
+- No request body; parameters are encoded within the resource URL  
+Create user: POST /users  
+Partially update user: PATCH /users/2  
+Delete user: DELETE /users/2
+
+**JSON‑RPC**
+
+- Single unified entry‑point: POST /api/rpc
+- HTTP method: fixed as POST
+- Target function name is written in the method field inside JSON payload
+```json
+{
+    "jsonrpc":"2.0",
+    "id": 1,
+    "method":"user.getUserById",
+    "params":{"userId":2}
+}
+```
+
+---
+
+## RESTful API (Resource‑Oriented Interface‑Design Paradigm)
+
+> The standardized version of REST-API; reckon that world is RESOURCES.
+
+
+---
+
+## JSON-RPC 2.0 (Procedure-Call Interface‑Design Paradigm)
+
+> JSON‑RPC can run on top of HTTP, but it does not belong to the REST‑API family; ONLY cares about how to CALL REMOTE FUNCTIONS.

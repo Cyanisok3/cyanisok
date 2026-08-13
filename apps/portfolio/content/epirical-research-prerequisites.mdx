@@ -1,7 +1,7 @@
 ---
 title: "How to Implement Empirical Research"
 publishedAt: "2025-06-03"
-updatedAt: "2026-06-04"
+updatedAt: "2026-08-09"
 author: "Cyan Liu"
 summary: "This page records some basic insights on empirical research"
 image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
@@ -12,9 +12,23 @@ image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fi
 
 At the very beginning of my application for the empirical research project of my **FYP**, my first impression for a project labelled with 'ER' was like an in-between concept combining the theoretical research and software engineering, which meant that the deliverables should include both a workable system and an insightful report (almost like a paper to be published on xxx conference!).
 
-Well, this was a bit naive.
+This was a bit naive.
 
 After I faced issues writing my project scheme for the proposal of an ER project, the supervisor for that project was extremely strict about that, since students who got accepted for his project last year all failed to conduct the empirical research, most of them only ended up with a specific software while did not propose a research problem and conduct experiment to solve it - on the other hand, the module convenor for the FYP did not draw out the topic - **WHAT EMPIRICAL RESEARCH IS**.
+
+---
+
+## Begin With Determining Your Research Objective
+
+The scope defines the **boundaries** and implies the **focus** of the research. So pay attention to it. Moreover, it suggests that the system design should follow the first principles so that each module you designed is valid for the experiment.
+
+Example:
+
+```text 
+A study on workplace productivity might focus on understanding how flexible work hours influence output within a given population.
+``` 
+
+---
 
 ## The Framework: Everything is About Your Research Questions (RQs)
 
@@ -26,7 +40,20 @@ Hypotheses can reflect your bias toward how to verify the RQ, serving as a bridg
 
 Normally, your hypotheses will include certain dependent variables (DVs). DVs can be divided into two subgroups, **quantitative ones** that can be measured and analysed in a mathematical way, **qualitative ones** which involves users' subjective opinions toward certain functions of your system and are usually be measured by surveys or interviews.
 
-## Be Careful About the Methodology design
+An example template of RQ and the corresponding hypothesis:
+```text
+Research Question
+RQ: Does [Independent Variable A] significantly affect [Dependent Variable B] in the target task?
+
+Hypotheses
+H0 (Null Hypothesis): [Independent Variable A] has no significant effect on [Dependent Variable B].
+H1 (Alternative Hypothesis): [Independent Variable A] significantly improves/reduces [Dependent Variable B].
+```
+
+---
+
+## Be Careful About the Experimental Design
 
 The first thing you should consider is whether you gonna implement a **within-subject** or a **between-subject** study design, which is a **trade-off between Individual Differences and Order Effects**. Simply to judge, if your experiement involves too many conditions or variables, within-subject pattern might be more suitable, otherwise you need plenty of groups and the costs of recruiting participants and conducting the experiment will increase significantly. Additionally, based on experience, minimalism and first principles can always benefit the design of a user study, so do trying to simplify your experiment conditions (independent variables), tasks and DVs.
 
+### The Participants

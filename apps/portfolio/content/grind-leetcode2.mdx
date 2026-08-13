@@ -96,3 +96,26 @@ public:
     }
 };
 ```
+
+---
+
+## Backtracking Algorithm
+
+Backtracking is essentially **brute‑force DFS**. It tries all valid options. When a path fails, it **undoes the current choice**, backtracks to the **upper‑level state** and tests the next branch. Its core idea is **trial‑and‑undo searching**.
+
+**The template:**
+
+```cpp
+void backtrack(path, option_list){
+    if (stopping_criteria){
+        /* save the answer */
+        return;
+    }
+    for(each_accessible_option)
+    {
+        /* make choice */
+        backtrack(new_path, new_option_list);
+        /* critical, undo the choice, backtrack */
+    }
+}
+```

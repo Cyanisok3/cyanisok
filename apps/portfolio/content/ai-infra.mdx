@@ -1,0 +1,71 @@
+---
+title: "Dive Into the Infrastructure of AI"
+publishedAt: "2025-08-09"
+updatedAt: "2026-08-09"
+author: "Cyan Liu"
+summary: "Behind the scenes of AI agent fever..."
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+## To Begin With: The Core Triangle of AI Infra
+
+New concepts keep popping up in this AI era, but the filter for noise is surprisingly straightforward. 
+
+After decades of evolution, the fundamental constraints of computing systems have never changed: **computation**, **data**, and **communication** - like a cycle. 
+
+Every innovation with genuine, long-term technical moats essentially pushes the limits on one of these three fronts: cutting redundant overhead in computation scheduling, reducing bandwidth waste from data movement, or lowering communication latency across processing units and nodes. 
+
+New AI-era technologies like CUDA Graph, KV Cache, and FlashAttention do trace their core ideas back to classic system theories — but they are far from rebranded old tricks. They take timeless principles and push them to the limit under entirely new hardware constraints: GPU tensor computing, HBM memory, and ten-thousand-GPU clusters, delivering measurable performance leaps. That is where real hard-core value lives. 
+
+On the flip side, “new technologies” that only do high-level process orchestration, UI wrapping (not saying UI design here..), or concept rebranding, without touching the underlying physical cost of computation, data, or communication, are essentially just **engineering integration**. They have practical value, but no irreplaceable technical barrier, and they fade first when industry hype cools down.
+
+The one question to ask before diving deep into any AI Infra technology: *does it actually move the needle on the physical overhead of this core triangle?*
+
+---
+
+## Tensor Library
+
+The underlying **mathematical engine** of neural networks, responsible for defining the data structure of tensors, memory management, and matrices & activation functions-related **numerical operations**.
+
+> GGML is a lightweight **C/C++** tensor library designed specifically for efficient inference of neural networks, especially LLMs.
+
+Specifically, it contains:
+
+- Tensor Management Layer (`ggml_tensor`)
+- Operator Library
+- **Multi-Hardware Backends and Task Scheduling Layer**
+- Computational Graph Scheduling Layer (lazy evaluation)
+
+GGML can simultaneously schedule CPU / AMD-Vulkan / Apple-Metal / Nvidia-CUDA. 
+
+When GGML needs to compute, e.g. Transformer forward passes on an Nvidia card, the GGML-CUDA backend calls the CUDA API to launch **custom GPU kernel functions** that perform tensor operations.
+
+> CUDA: a hardware programming API, the bridge between programmers and GPUs.
+
+> GPU kernal function (Kernel): A C-like function to be executed in GPU, assigned by CPU.
+
+For example:
+
+```cpp 
+__global__ void add_kernel(float *a,float *b,float *out) {
+    int idx = threadIdx.x;
+    out[idx] = a[idx] + b[idx];
+}
+``` 
+
+**Summary - the entire procedure:**
+
+1. llama-cpp initiates a **request**: it needs to compute matrix multiplication for the **attention layer**;
+2. GGML creates the **weight tensors** and copies the quantized weights into **GPU memory**;
+3. GGML’s CUDA backend calls the **CUDA runtime API**;
+4. It loads the **custom Kernel** (a 4-bit matrix multiplication kernel) that was hand-coded in advance;
+5. It launches tens of thousands of GPU threads to perform the tensor computations **in parallel**;
+6. Once the computations are complete, the result tensor is returned.
+
+
+
+## Reference
+
+What is Tensor Library?: https://blog.csdn.net/qitian_8615/article/details/160009530?f_link_type=f_linkinlinenote&flow_extra=eyJkb2NfcG9zaXRpb24iOjAsImRvY19pZCI6IjBiZjQ0ZWJlOTM2YmMxYmUtMzkwNjhiN2MyYzU3MmE1YyIsImlubGluZV9kaXNwbGF5X3Bvc2l0aW9uIjowfQ%3D%3D
+
+GGML Joined Hugging Face! But… What Is GGML?: https://huggingface.co/blog/salihfurkaan/ggml-introduction?f_link_type=f_linkinlinenote&flow_extra=eyJkb2NfaWQiOiJmZjYwNGY2ZDg2YTU5YjYzLWEzNTBjMzM1ZTc5MjI4OWIiLCJpbmxpbmVfZGlzcGxheV9wb3NpdGlvbiI6MCwiZG9jX3Bvc2l0aW9uIjowfQ%3D%3D
