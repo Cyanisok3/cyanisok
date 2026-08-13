@@ -45,6 +45,26 @@ export function isUnauthorized(error: unknown) {
   );
 }
 
+export function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+export const SUPPORTED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
+
+export const CHAT_MESSAGE_MAX_BYTES = 8000;
+
+export function getUtf8ByteLength(value: string) {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+export function isSupportedImageFile(file: File) {
+  return SUPPORTED_IMAGE_TYPES.some((type) => type === file.type);
+}
+
 export function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -53,11 +73,31 @@ export function getErrorMessage(error: unknown) {
   return "Something went wrong";
 }
 
-export function readFileAsDataUrl(file: File) {
+export function readFileAsDataUrl(file: File, signal?: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
+
+    const cleanup = () => signal?.removeEventListener("abort", handleAbort);
+    const handleAbort = () => {
+      reader.abort();
+      reject(new DOMException("The operation was aborted", "AbortError"));
+    };
+
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+
+    reader.onload = () => {
+      cleanup();
+      resolve(String(reader.result));
+    };
+    reader.onerror = () => {
+      cleanup();
+      reject(reader.error ?? new Error("Unable to read the selected image"));
+    };
+    reader.onabort = cleanup;
+    signal?.addEventListener("abort", handleAbort, { once: true });
     reader.readAsDataURL(file);
   });
 }

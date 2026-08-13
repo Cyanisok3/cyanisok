@@ -65,6 +65,11 @@ Required variables:
 | `DEEPSEEK_API_KEY` | DeepSeek API Key | Required |
 | `MYSQL_PASSWORD` | Application database password | Required |
 | `MYSQL_ROOT_PASSWORD` | MySQL administrative password | Required |
+| `AI_MAX_TOKENS` | Maximum completion tokens sent to the AI API | `4096` |
+| `AI_WORKER_COUNT` | AI streaming worker count | `4` |
+| `AI_QUEUE_CAPACITY` | Maximum queued AI requests | `32` |
+| `IMAGE_QUEUE_CAPACITY` | Maximum queued image requests | `4` |
+| `REGISTRATION_ENABLED` | Register the optional `/register` route | `false` |
 
 ## Build & Run
 
@@ -136,7 +141,7 @@ ctest --test-dir build --output-on-failure
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/login` | User login |
-| POST | `/register` | User registration |
+| POST | `/register` | User registration, only when `REGISTRATION_ENABLED=true` |
 | POST | `/user/logout` | User logout |
 | POST | `/chat/send` | Stream AI chat response via Server-Sent Events |
 | POST | `/chat/history` | Get chat history |
@@ -148,7 +153,7 @@ ctest --test-dir build --output-on-failure
 
 ### Chat Functionality
 
-- User registration and login with session-based authentication
+- Existing-user login with session-based authentication; public registration is disabled by default
 - Streaming chat with DeepSeek AI
 - Persistent chat history stored in MySQL
 - Direct, ordered MySQL persistence with bounded AI execution
@@ -164,7 +169,8 @@ ctest --test-dir build --output-on-failure
 - **Reactor Pattern**: Built on muduo network library for high-performance I/O
 - **Middleware Chain**: Extensible middleware for cross-cutting concerns
 - **Connection Pooling**: MySQL connection pool for efficient database access
-- **Bounded concurrency**: Fixed AI workers, bounded queue, and one active chat per user
+- **Bounded concurrency**: Separate bounded AI and image executors, plus one active chat per user
+- **Session fixation protection**: Successful login replaces the pre-authentication session ID
 
 ## Third-Party Dependencies
 

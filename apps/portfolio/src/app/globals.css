@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+/* Keep Tailwind's dark: utilities aligned with next-themes' class-based theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Local font for specific sections */
 @font-face {
   font-family: "AFL";
@@ -229,7 +232,7 @@
   }
 
   .prose blockquote {
-    @apply border-l-4 border-amber-500! pl-4 italic bg-muted/50 p-4 rounded-md rounded-l-none;
+    @apply border-l-4 border-amber-500! bg-muted/50 p-4 pl-4 text-foreground/90! italic rounded-md rounded-l-none;
   }
 
   .prose blockquote p {
@@ -272,11 +275,11 @@
   }
 
   .prose :where(th):not(:where([class~="not-prose"] *)) {
-    @apply text-left font-semibold text-foreground border-b border-border m-0! bg-muted/50 p-3! py-2!;
+    @apply text-left font-semibold text-foreground! border-b border-border m-0! bg-muted/50 p-3! py-2!;
   }
 
   .prose :where(td):not(:where([class~="not-prose"] *)) {
-    @apply text-foreground/80 border-b border-border text-sm! p-2!;
+    @apply text-foreground/80! border-b border-border text-sm! p-2!;
   }
 
   .prose :where(th:not(:last-child)):not(:where([class~="not-prose"] *)),

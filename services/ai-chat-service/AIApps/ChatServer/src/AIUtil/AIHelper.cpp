@@ -66,6 +66,9 @@ AIHelper::AIClientConfig AIHelper::AIClientConfig::fromEnvironment()
     config.streamIdleTimeoutSeconds = readPositiveLongEnv(
         "AI_STREAM_IDLE_TIMEOUT_SECONDS",
         config.streamIdleTimeoutSeconds);
+    config.maxTokens = readPositiveLongEnv(
+        "AI_MAX_TOKENS",
+        config.maxTokens);
     return config;
 }
 
@@ -116,6 +119,7 @@ json AIHelper::buildPayload(
         });
     }
     payload["stream"] = stream;
+    payload["max_tokens"] = config_.maxTokens;
     return payload;
 }
 

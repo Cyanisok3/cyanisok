@@ -1,0 +1,121 @@
+---
+title: "Thoughts on Solving LeetCode Problems - Part 2"
+publishedAt: "2025-07-27"
+updatedAt: "2026-08-01"
+author: "Cyan Liu"
+summary: "This is part 2 of the Leetcode-related algorithm Journal."
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+
+## Dynamic Programming (DP)
+
+DP can be seen as the engineering application of Mathematical Induction. Therefore, the implementation of the framework should define both the base case and the inductive step. The latter also represents the state transition in the problem contexts.
+
+Every DP problem must consist of three parts — this is a fixed template:
+- [x] **State definition**: The meaning of the DP array (a general pattern, depending on the specific context)
+- [x] **Base case**: Initial boundary condition that do not require calculation (e.g. `dp[0] = 0;`)
+- [x] **State transition**: How to derive the current state from a smaller or earlier state, as well as the final result (the hardest part)
+
+Now we usually use DP to find out the optimal solution, and it tells us that the optimal solution to a large problem can be divided into its subproblems' optimal solutions. If no optimal substructure can be seen, DP cannot work — this is a prerequisite for all DP problems. Also, only the results of the subproblems can be exposed to other states, that's why we use an array `dp[]` to store them.
+
+### Longest Palindromic Substring
+
+> Given a string `s`, find the longest palindromic substring.
+
+To Utilize the DP framework, we need to define our vector `dp` first.
+
+But recall the definition of palindrome first, the fact that **a string is palindromic** is actually based on the premise that all of its substrings are also palindromic. This is a natural state transition, we can take advantage of it.
+
+A 2D vector can be used to store the states:
+```cpp
+vector<vector<int>> dp(n, vector<int>(n, 0));
+```
+where `dp[i][j]` represents whether the substring `s[i->j]` is palindromic or not.
+
+Hence for the transition equation:
+```cpp
+dp[i][j] = dp[i + 1][j - 1];
+```
+
+Don't forget that the problem requires us to return the longest one, we need to maintain two variables to store the starting index of the substring as well as its length:
+```cpp
+int maxLen = 1;
+int begin = 0;
+
+/* ... */
+
+// in the loop:
+if (dp[i][j] && j - i + 1 > maxLen) {
+    maxLen = j - i + 1;
+    begin = i;
+}
+
+// lastly:
+return s.substr(begin, maxLen);
+```
+
+```cpp
+class Solution {
+public:
+    string longestPalindrome(string s) {
+        int n = s.length();
+        if (n < 2) {
+            return s;
+        }
+        
+        int maxLen = 1;
+        int begin = 0;
+        vector<vector<int>> dp(n, vector<int>(n, 0));
+        for (int i = 0; i < n; ++i) {
+            dp[i][i] = true;
+        }
+
+        for (int L = 2; L <= n; ++L) {
+            for (int i = 0; i < n; ++i) {
+                int j = L + i - 1;
+                if (j >= n) break;
+
+                if (s[i] != s[j]) {
+                    dp[i][j] = false;
+                } else {
+                    if (j - i < 3) {
+                        dp[i][j] = true;
+                    } else {
+                        dp[i][j] = dp[i + 1][j - 1];
+                    }
+                }
+
+                if (dp[i][j] && j - i + 1 > maxLen) {
+                    maxLen = j - i + 1;
+                    begin = i;
+                }
+            }
+        }
+        return s.substr(begin, maxLen);
+    }
+};
+```
+
+---
+
+## Backtracking Algorithm
+
+Backtracking is essentially **brute‑force DFS**. It tries all valid options. When a path fails, it **undoes the current choice**, backtracks to the **upper‑level state** and tests the next branch. Its core idea is **trial‑and‑undo searching**.
+
+**The template:**
+
+```cpp
+void backtrack(path, option_list){
+    if (stopping_criteria){
+        /* save the answer */
+        return;
+    }
+    for(each_accessible_option)
+    {
+        /* make choice */
+        backtrack(new_path, new_option_list);
+        /* critical, undo the choice, backtrack */
+    }
+}
+```

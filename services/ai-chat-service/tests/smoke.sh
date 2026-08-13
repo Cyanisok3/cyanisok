@@ -42,11 +42,59 @@ curl -fsS \
   -d "{\"username\":\"$username\",\"password\":\"smoke-password\"}" \
   http://127.0.0.1:8080/register >/dev/null
 
+anonymous_history_status="$(
+  curl -sS \
+    -o "$tmp_dir/anonymous-history.body" \
+    -w "%{http_code}" \
+    -c "$cookie_file" \
+    -H "Content-Type: application/json" \
+    -d '{}' \
+    http://127.0.0.1:8080/chat/history
+)"
+[[ "$anonymous_history_status" == "401" ]]
+anonymous_session_id="$(awk '$6 == "sessionId" { print $7 }' "$cookie_file")"
+[[ -n "$anonymous_session_id" ]]
+cp "$cookie_file" "$tmp_dir/anonymous.cookie"
+
 curl -fsS \
+  -b "$cookie_file" \
   -c "$cookie_file" \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"$username\",\"password\":\"smoke-password\"}" \
   http://127.0.0.1:8080/login >/dev/null
+
+authenticated_session_id="$(awk '$6 == "sessionId" { print $7 }' "$cookie_file")"
+[[ -n "$authenticated_session_id" ]]
+[[ "$authenticated_session_id" != "$anonymous_session_id" ]]
+
+stale_session_status="$(
+  curl -sS \
+    -o "$tmp_dir/stale-session.body" \
+    -w "%{http_code}" \
+    -b "$tmp_dir/anonymous.cookie" \
+    -H "Content-Type: application/json" \
+    -d '{}' \
+    http://127.0.0.1:8080/chat/history
+)"
+[[ "$stale_session_status" == "401" ]]
+
+python3 -c '
+import json
+import sys
+
+json.dump({"question": "你" * 2667}, sys.stdout, ensure_ascii=False)
+' >"$tmp_dir/utf8-over-limit.json"
+utf8_limit_status="$(
+  curl -sS \
+    -o "$tmp_dir/utf8-over-limit.body" \
+    -w "%{http_code}" \
+    -b "$cookie_file" \
+    -H "Content-Type: application/json" \
+    --data-binary "@$tmp_dir/utf8-over-limit.json" \
+    http://127.0.0.1:8080/chat/send
+)"
+[[ "$utf8_limit_status" == "400" ]]
+grep -q "UTF-8 bytes" "$tmp_dir/utf8-over-limit.body"
 
 stream="$(
   curl -fsS -N \
@@ -335,6 +383,18 @@ invalid_image_status="$(
 )"
 [[ "$invalid_image_status" == "400" ]]
 
+gif_image_status="$(
+  curl -sS \
+    -o "$tmp_dir/gif-image.body" \
+    -w "%{http_code}" \
+    -b "$cookie_file" \
+    -H "Content-Type: application/json" \
+    -d '{"filename":"pixel.gif","image":"R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}' \
+    http://127.0.0.1:8080/upload/send
+)"
+[[ "$gif_image_status" == "400" ]]
+grep -q "Unsupported image format" "$tmp_dir/gif-image.body"
+
 oversized_image_status="$(
   curl -sS \
     -o "$tmp_dir/oversized-image.body" \
@@ -370,5 +430,28 @@ result = json.load(sys.stdin)
 assert result["class_name"]
 assert 0.0 <= float(result["confidence"]) <= 1.0
 ' <<<"$valid_image_response"
+
+export SMOKE_REGISTRATION_ENABLED=false
+"${compose[@]}" up -d --force-recreate app >/dev/null
+for attempt in {1..30}; do
+  if curl -fsS http://127.0.0.1:8080/ready >/dev/null; then
+    break
+  fi
+  if [[ "$attempt" == "30" ]]; then
+    "${compose[@]}" logs app
+    exit 1
+  fi
+  sleep 1
+done
+
+registration_disabled_status="$(
+  curl -sS \
+    -o "$tmp_dir/registration-disabled.body" \
+    -w "%{http_code}" \
+    -H "Content-Type: application/json" \
+    -d '{"username":"disabled","password":"smoke-password"}' \
+    http://127.0.0.1:8080/register
+)"
+[[ "$registration_disabled_status" == "404" ]]
 
 echo "Smoke test passed"

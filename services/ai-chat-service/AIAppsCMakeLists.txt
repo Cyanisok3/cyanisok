@@ -78,11 +78,14 @@ message(STATUS "Chat Server sources: ${CHAT_SERVER_SRC}")
 if(BUILD_TESTING)
     add_executable(unit_tests
         ${PROJECT_SOURCE_DIR}/tests/UnitTests.cpp
+        ${PROJECT_SOURCE_DIR}/HttpServer/src/http/HttpRequest.cpp
         ${PROJECT_SOURCE_DIR}/HttpServer/src/session/Session.cpp
+        ${PROJECT_SOURCE_DIR}/HttpServer/src/session/SessionManager.cpp
+        ${PROJECT_SOURCE_DIR}/HttpServer/src/session/SessionStorage.cpp
         ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/BoundedExecutor.cpp
         ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/ImageValidation.cpp
         ${PROJECT_SOURCE_DIR}/AIApps/ChatServer/src/AIUtil/SseStreamParser.cpp
     )
-    target_link_libraries(unit_tests pthread)
+    target_link_libraries(unit_tests pthread crypto)
     add_test(NAME unit_tests COMMAND unit_tests)
 endif()

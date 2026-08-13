@@ -98,21 +98,6 @@ ImageDimensions parsePng(const std::vector<unsigned char>& data)
         readBigEndian32(data, 20U));
 }
 
-ImageDimensions parseGif(const std::vector<unsigned char>& data)
-{
-    if (data.size() < 10U)
-    {
-        throw std::invalid_argument("Invalid GIF image header");
-    }
-    const std::uint32_t width =
-        static_cast<std::uint32_t>(data[6U]) |
-        (static_cast<std::uint32_t>(data[7U]) << 8U);
-    const std::uint32_t height =
-        static_cast<std::uint32_t>(data[8U]) |
-        (static_cast<std::uint32_t>(data[9U]) << 8U);
-    return validateDimensions(width, height);
-}
-
 bool isJpegStartOfFrame(unsigned char marker)
 {
     return
@@ -262,11 +247,6 @@ ImageDimensions validateEncodedImage(
     {
         return parsePng(imageData);
     }
-    if (matches(imageData, 0U, "GIF87a", 6U) ||
-        matches(imageData, 0U, "GIF89a", 6U))
-    {
-        return parseGif(imageData);
-    }
     if (imageData.size() >= 2U &&
         imageData[0U] == 0xFFU &&
         imageData[1U] == 0xD8U)
@@ -280,7 +260,7 @@ ImageDimensions validateEncodedImage(
     }
 
     throw std::invalid_argument(
-        "Unsupported image format; use PNG, JPEG, GIF, or WebP");
+        "Unsupported image format; use PNG, JPEG, or WebP");
 }
 
 } // namespace image_validation

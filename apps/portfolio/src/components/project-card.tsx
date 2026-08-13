@@ -5,8 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeToReducedMotion(onStoreChange: () => void) {
+  const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+  mediaQuery.addEventListener("change", onStoreChange);
+  return () => mediaQuery.removeEventListener("change", onStoreChange);
+}
+
+const getReducedMotionSnapshot = () =>
+  window.matchMedia(REDUCED_MOTION_QUERY).matches;
+const getReducedMotionServerSnapshot = () => true;
 
 function ProjectImage({ src, alt }: { src: string; alt: string }) {
   const [imageError, setImageError] = useState(false);
@@ -54,6 +66,26 @@ export function ProjectCard({
   links,
   className,
 }: Props) {
+  const shouldReduceMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot
+  );
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+
+    if (shouldReduceMotion) {
+      element.pause();
+    } else {
+      void element.play().catch(() => {
+        // Browser autoplay policies may still block playback.
+      });
+    }
+  }, [shouldReduceMotion]);
+
   return (
     <div
       className={cn(
@@ -62,28 +94,46 @@ export function ProjectCard({
       )}
     >
       <div className="relative shrink-0">
-        <Link
-          href={href || "#"}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block"
-        >
-          {video ? (
+        {video ? (
+          <div className="relative">
             <video
+              ref={videoRef}
               src={video}
-              autoPlay
-              loop
+              autoPlay={!shouldReduceMotion}
+              loop={!shouldReduceMotion}
               muted
               playsInline
+              controls={shouldReduceMotion}
+              preload="metadata"
               className="w-full h-48 object-cover"
               aria-label={`${title} demo video`}
             />
-          ) : image ? (
-            <ProjectImage src={image} alt={title} />
-          ) : (
-            <div className="w-full h-48 bg-muted" />
-          )}
-        </Link>
+            <Link
+              href={href || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                shouldReduceMotion && "hidden"
+              )}
+              aria-label={`Open ${title}`}
+            />
+          </div>
+        ) : (
+          <Link
+            href={href || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            aria-label={`Open ${title}`}
+          >
+            {image ? (
+              <ProjectImage src={image} alt={title} />
+            ) : (
+              <div className="w-full h-48 bg-muted" />
+            )}
+          </Link>
+        )}
         {links && links.length > 0 && (
           <div className="absolute top-2 right-2 flex flex-wrap gap-2">
             {links.map((link, idx) => (

@@ -1,7 +1,7 @@
 "use client";
 
 import type { DragEvent, FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileImage, ImageIcon, Loader2, UploadCloud, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,10 +29,17 @@ export function ImagePanel({
   onUpload,
 }: ImagePanelProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const confidencePercent =
     typeof imageConfidence === "number"
       ? Math.max(0, Math.min(100, Math.round(imageConfidence * 100)))
       : null;
+
+  useEffect(() => {
+    if (!selectedFile && inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }, [selectedFile]);
 
   function formatFileSize(file: File) {
     if (file.size < 1024 * 1024) {
@@ -46,6 +53,7 @@ export function ImagePanel({
     event.preventDefault();
     setIsDragging(false);
 
+    if (uploading) return;
     const file = event.dataTransfer.files?.[0] ?? null;
     if (file) {
       onFileChange(file);
@@ -53,39 +61,53 @@ export function ImagePanel({
   }
 
   return (
-    <form className="flex min-h-[34rem] flex-col gap-5 p-4" onSubmit={onUpload}>
+    <form
+      className="flex min-h-[34rem] flex-col gap-5 p-4"
+      onSubmit={onUpload}
+      aria-busy={uploading}
+    >
       <div
         className={cn(
           "rounded-lg border border-dashed bg-background/80 p-6 text-center transition-colors",
-          isDragging
+          isDragging && !uploading
             ? "border-primary bg-muted/70"
-            : "hover:bg-muted/50"
+            : "hover:bg-muted/50",
+          uploading && "cursor-not-allowed opacity-70"
         )}
         onDragEnter={(event) => {
           event.preventDefault();
-          setIsDragging(true);
+          if (!uploading) setIsDragging(true);
         }}
         onDragOver={(event) => event.preventDefault()}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
         <input
+          ref={inputRef}
           id="chat-image-upload"
           className="sr-only"
           type="file"
-          accept="image/*"
-          onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+          accept="image/png,image/jpeg,image/webp"
+          disabled={uploading}
+          onChange={(event) => {
+            onFileChange(event.target.files?.[0] ?? null);
+            event.currentTarget.value = "";
+          }}
         />
         <label
           htmlFor="chat-image-upload"
-          className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3"
+          aria-disabled={uploading}
+          className={cn(
+            "flex min-h-36 flex-col items-center justify-center gap-3",
+            uploading ? "cursor-not-allowed" : "cursor-pointer"
+          )}
         >
-          <UploadCloud className="size-8 text-muted-foreground" />
+          <UploadCloud className="size-8 text-muted-foreground" aria-hidden />
           <span className="text-sm font-medium">
             Drop an image here or choose a file
           </span>
           <span className="text-xs text-muted-foreground">
-            PNG, JPG, GIF, or WebP. Max 5 MB.
+            PNG, JPG, or WebP. Max 5 MB.
           </span>
         </label>
       </div>
@@ -93,7 +115,10 @@ export function ImagePanel({
       {selectedFile && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
           <div className="flex min-w-0 items-center gap-3">
-            <FileImage className="size-4 flex-none text-muted-foreground" />
+            <FileImage
+              className="size-4 flex-none text-muted-foreground"
+              aria-hidden
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{selectedFile.name}</p>
               <p className="text-xs text-muted-foreground">
@@ -106,9 +131,10 @@ export function ImagePanel({
             variant="ghost"
             size="icon"
             className="size-8 flex-none"
+            disabled={uploading}
             onClick={() => onFileChange(null)}
           >
-            <X className="size-4" />
+            <X className="size-4" aria-hidden />
             <span className="sr-only">Remove image</span>
           </Button>
         </div>
@@ -126,13 +152,20 @@ export function ImagePanel({
       )}
 
       {imageError && (
-        <div className="rounded-lg border border-destructive/40 bg-background px-4 py-3 text-sm text-destructive">
+        <div
+          className="rounded-lg border border-destructive/40 bg-background px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
           {imageError}
         </div>
       )}
 
       {imageResult && (
-        <div className="rounded-lg border bg-background px-4 py-3">
+        <div
+          className="rounded-lg border bg-background px-4 py-3"
+          role="status"
+          aria-live="polite"
+        >
           <p className="text-xs uppercase text-muted-foreground">Recognition</p>
           <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
             <p className="text-lg font-semibold">{imageResult}</p>
@@ -147,6 +180,11 @@ export function ImagePanel({
               <div
                 className="h-full rounded-full bg-primary"
                 style={{ width: `${confidencePercent}%` }}
+                role="progressbar"
+                aria-label="Recognition confidence"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={confidencePercent}
               />
             </div>
           )}
@@ -155,12 +193,15 @@ export function ImagePanel({
 
       <Button type="submit" className="gap-2" disabled={!selectedFile || uploading}>
         {uploading ? (
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 className="size-4 animate-spin" aria-hidden />
         ) : (
-          <ImageIcon className="size-4" />
+          <ImageIcon className="size-4" aria-hidden />
         )}
-        Recognize
+        {uploading ? "Recognizing…" : "Recognize"}
       </Button>
+      <p className="sr-only" role="status" aria-live="polite">
+        {uploading ? "Image recognition in progress" : ""}
+      </p>
     </form>
   );
 }

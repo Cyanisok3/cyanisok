@@ -20,6 +20,7 @@ public:
         long requestTimeoutSeconds = 60;
         long connectTimeoutSeconds = 10;
         long streamIdleTimeoutSeconds = 90;
+        long maxTokens = 4096;
 
         static AIClientConfig fromEnvironment();
     };

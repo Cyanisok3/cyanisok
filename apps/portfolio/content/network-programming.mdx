@@ -1,0 +1,455 @@
+---
+title: "Computer Network Programming Basics"
+publishedAt: "2025-08-01"
+updatedAt: "2026-08-01"
+author: "Cyan Liu"
+summary: "Some notes on learning basic network frameworks."
+image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
+---
+
+
+## HTTP-Based Service Transport Layer
+
+Basic components: 
+
+- Request Line
+- Request Head
+- *[EMPTY LINE]*
+- Request Body
+
+GET Method Message Example (Dynamic Router):
+
+```mdx
+GET /user/729?tag=student HTTP/1.1    // path params (for router) + query params (for HttpServer)
+Host: 127.0.0.1:9090
+User-Agent: Mozilla/5.0 Chrome
+Accept: application/json
+Cookie: token=abcd1234
+    /* EMPTY LINE */
+```
+
+Note that the `?tag=student` in the request line corresponds to **query parameters**: `{"tag" : "student"}`.
+
+---
+
+POST Method Message Example (Static Router):
+
+```mdx
+POST /login HTTP/1.1
+Host: 127.0.0.1:9090
+Content-Type: application/json
+Content-Length: 55
+Accept: */*
+    /* EMPTY LINE */
+{"username":"root","password":"12345678"}    // body params (for HttpServer)
+```
+
+---
+
+### HTTP Message Parsing and Encapsulation Module
+
+- `HttpContext`
+
+- `HttpRequest`
+
+- `HttpResponse`
+
+- `HttpServer`
+
+---
+
+### Routing Module
+
+> Route Key = Method + URI
+
+- [x] Static Matching (use hash tables to store):
+
+`handlers_`
+
+| Key | Value |
+| --- | --- |
+| ("GET","/login") | HandlerPtr A |
+| ("POST","/login") | HandlerPtr B |
+| ("GET","/user/list") | HandlerPtr C |
+
+`callbacks_`
+
+| Key | Value |
+| --- | --- |
+| ("GET","/login") | loginPageCallback |
+| ("POST","/login") | loginSubmitCallback |
+| ("GET","/user/list") | getUserListCallback |
+
+- [x] Dynamic Matching (use vectors to store)
+
+`regexHandlers_`
+
+| Index | Method | Reg. Expr. |
+| --- | --- | --- |
+| 0 | GET | ^/user/(\d+)$ |
+| 1 | GET | ^/article/(\d+)$ |
+
+`regexCallbacks_`
+
+| Index | Callback Func. |
+| --- | --- |
+| 0 | getUserDetailCallback |
+| 1 | getArticleCallback |
+
+- The Procedure of Register:
+
+`addRegexHandler("GET", "user/:uid", [HanlderPtr])`  
+-> `convertToRegex` converts `:uid` to `^/user/([^/]+)$`  
+->  `("GET", ^/user/([^/]+)$, [HanlderPtr])` is stored in `std::vector<RouteHandlerObj> regexHandlers_`
+
+- The Procedure of `route()`:
+
+`RouteKey{GET, "/user/666"}`  
+-> execute `.find()` in `handlers_` & `callbacks_`  
+-> FAILED  
+-> traverse the `regexHandlers_` (check method + regx)  
+-> `if (matched)` using check method & `regex_match()` 
+-> `extractPathParameters(&matchResult, &request)`  
+-> execute `request.setPathParameters("param1", "666")`
+
+Lastly, the router have `req.pathParams["param1"] = "666"` and can call the handler method (where it can access the path parameters) in the object that [HandlerPtr] points to.
+
+> Note that if `user/666/777`, then we also have `req.pathParams["param2"] = "777"`.
+
+---
+
+### Session Management Module
+
+> How does the HTTP server remember the clients?
+
+> What user status information does the server need to retain?
+
+> Can we verify a user's access permissions based on their information we have on record?
+
+**Basic Classes:**
+
+- [x] **Session** (the atomic component)
+
+Containing:
+1. `sessionId_`
+2. `data_` : a session-specific KV container that stores user information and temporary page data
+3. `maxAge_` & `expiryTime_` : checked by `isExpired()` that is accessible to `SessionManager` & `SessionStorage`
+4. `sessionManager_` : to update the stored sessions by indirectly accessing SessionStorage
+
+- [x] **SessionManager** (create, search, destroy Sessions)
+
+Responsible for managing:
+1. `sessionId`
+2. `Session` & `SessionStorage` objects
+
+Note:
+1. The only class have direct access to `SessionStorage`.
+2. Can access cookies from `HttpRequest` to get `sessionId`
+
+- [x] **SessionStorage** (abstract) & MemorySessionStorage (memory implementation)
+
+It maintains a `std::unordered_map<std::string, std::shared_ptr<Session>> sessions_`.
+
+Is able to:
+1. `save(session)`
+2. `load(sessionId)` (search corresponding sessions)
+3. `remove(sessionId)`
+
+
+```text
+Handlers → ChatServer → HttpServer → SessionManager → SessionStorage
+                                          ↑
+                Session ─── updateSession ┘
+```
+
+---
+
+### Middleware Module
+
+> We need to preprocess the HttpRequest (parsing, validation and verification) and choose which of them can be sent to Router.
+
+> We need to format the HttpResponse (code, msg, data).
+
+> Need to manage logging.
+
+> Need error handling.
+
+- Base class: `Middleware`; Child class: `CorsMiddleware`
+
+- `CorsMiddleware` overwrite `before()` & `after()` and is only referenced by `ChatServer`; 
+
+`CorsMiddleware` first checks if Method == "OPTIONS" and handle the preflight request. If yes, it then verifies the **Origin, Method and Headers** of the preflight request against `allowedMethods` and `allowedHeaders`. If all checks pass, the `CorsMiddleware` writes all CORS-related headers to the response, returns early to **skip the Router**.
+
+For the preflight request: 
+```cpp
+addCorsHeaders(response, request.getHeader("Origin")); // add it back the way it was
+```
+
+For the normal requests: 
+```cpp
+addCorsHeaders(response, "*"); // default configuration
+```
+
+- `CorsConfig` records `allowedOrigins`, `allowedMethods` and `allowedHeaders`
+
+- `MiddlewareChain` uses `vector<shared_ptr<Middleware>>` to store `Middleware`s and call their `before()` & `after()` in a special order:
+
+```text
+A.before → B.before → Handlers → B.after → A.after
+```
+
+---
+
+### Integrated Database Connection Pool Module
+
+Database is a disk, I/O operation is resource-consuming. Therefore, we need cache system (Redis or memory cache, usually in **KV entries**), or MySQL (in **2D tables**).
+
+**Connection pool** allows applications to **reuse** an existing database connection.
+
+The Process of Executing an SQL Statement:
+
+1. Establish a connection via the TCP 3-way handshake
+2. MySQL authenticates the connection and **allocates the necessary resources**
+3. **Execute the SQL statement**
+4. Close the MySQL connection and **reclaim the necessary resources**
+5. Close the connection via the TCP 4-way handshake
+
+How a Database Connection Pool Works:
+
+1. Create a connection pool (`vector`, `queue`, etc.)
+2. **Manage the usage of the connection** (available? -> max connections? -> create a new connection / wait -> max time? -> exception)
+3. Close the coonection pool (close all connections, free all resources)
+
+```text
+Handlers / ChatServer
+        ↓
+    MysqlUtil
+        ↓
+ DbConnectionPool（Global Singleton Pattern）
+        ↓
+   DbConnection（single MySQL connection）
+        ↓
+       MySQL
+```
+
+**In `DbConnection`**:
+
+1. Initialize database connection (constructor):
+```cpp
+try {
+    sql::mysql:MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+    conn_.reset(dirver->connect(host_, user_, password_));
+    conn_->setSchema(database_);
+} catch (const sql::SQLException& e) {
+    throw DbException(e.what());
+}
+```
+
+1. Two critical functions: 
+```cpp
+executeQuery(sql, args...);  // SELECT
+    return stmt->executeQuery();
+executeUpdate(sql, args...); // INSERT / UPDATE / DELETE
+    return stmt->executeUpdate();
+```
+
+2. Use mutex lock while accessing MySQL:
+```cpp
+std::lock_guard<std::mutex> lock(mutex_);
+```
+
+3. It also provides `ping()`, `reconnect()`, `cleanup()`, for healthy check, reconnection and cleaning up resources.
+
+**`DbConnectionPool` is a process-level singleton instance**
+
+1. Singleton design pattern:
+```cpp
+static DbConnectionPool& getInstance() {
+    static DbConnectionPool instance;
+    return instance;
+}
+
+/* ... */
+
+private:
+    DbConnectionPool();
+    ~DbConnectionPool();
+
+/* ... */
+```
+
+2. Get access to a connection, if none, wait:
+```cpp
+// lock(mutex_) first
+auto conn = connections_.front();
+connections_.pop(); // it's a queue
+
+lock.unlock()
+
+/* check connection and reconnect if conn->ping() failed */
+```
+
+3. Use `conn->ping()` to check connection.
+
+**`MysqlUtil` is a tool class, providing simple APIs to access the database**
+
+1. `static void init(host, user, password, database, poolSize) {}`
+
+2. `sql::ResultSet* executeQuery(sql, args) {}`
+
+3. `int executeUpdate(sql, args) {}`
+
+---
+
+### HTTPS Module
+
+```text
+HTTP -- SSL (encode) --> HTTPS (safer, more robust)
+```
+
+**Hybrid encryption:**
+```text
+Client --visit port 443--> Server
+Client <--send CA certificate (contains a **public key**)-- Server
+Client → **verify** successfully → generate a **random key** → **encode** the generated key using the public key
+Client --send the encoded random key--> Server
+Server → decode using the **private key** → gain the random key → use this key for **symmetric encryption** communication
+```
+
+**Pros:** 
+1. Data Security
+2. Search Engine Optimization
+3. User Trust
+
+**Cons:** 
+1. Performance Overhead
+2. Certificate Costs
+3. Configuration Complexity & Compatibility Issues
+
+`SslConfig`: 
+1. Certificate configs
+2. Protocol version & cipher list configs
+3. Client verification configs
+4. Session configs
+
+`SslContext`: 
+1. Initialize SSL Context 
+2. Load certificate and private key 
+
+> How to integrate SSL into the HTTP server?
+
+We need to: 
+- Initialize SSL context  
+create `SslConfig`  
+--init-> `SslContext`  
+-> load certificate & private key   
+- Manage SSL connection 
+create `SslConnection`  
+-> invoke `startHandshake`  
+--handshake finished-> handle r/w of the encrypted data  
+- Configurate the server  
+`HttpServer::start`  
+--init ssl ctx-> use `SslConnection`
+
+`SslConnection` (manage SSL connection, including handshake event & data encryption/decryption).
+
+`HttpServer` needs to: 
+1. Initialize SSL-related configs
+```cpp
+void HttpServer::start(certFile, keyFile) {
+    ssl::SslConfig sslConfig(certFile, keyFile);
+    sslContext_ = ssl:: SslContext(sslConfig);
+    /* 
+        1. init server and start listening
+        2. create SslConnection when connection is established 
+    */
+}
+```
+2. Create `SslConnection` object when new connection is established
+```cpp
+void HttpServer::onConnection(const muduo::net::TcpConnectionPtr& conn);
+```
+3. Determine if HTTPS service is needed everytime when new message is received
+```cpp
+void HttpServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
+                   muduo::net::Buffer* buf,
+                   muduo::Timestamp receiveTime);
+```
+
+**Notes:**
+1. **Reactor** design pattern (epoll loop -> SslConnection -> Http parsing / Router)
+2. **muduo** C++ library
+
+---
+
+## What's Next? REST API vs. RESTful API vs. JSON-RPC
+
+Common data formats HTTP protocol can transmit (after the `Content-Type` variable):  
+1. `application/json` — JSON (used by REST‑API, JSON‑RPC)
+2. `application/x‑www‑form‑urlencoded` — URL‑encoded form key‑value pairs
+3. `multipart/form‑data` — Form‑data for file upload and mixed parameters
+4. `application/xml` — XML payload
+5. `text/plain` — Plain text
+6. `text/html` — Hypertext markup
+7. `application/protobuf` — Binary Protobuf (gRPC over HTTP)
+8. `application/yaml` — YAML‑structured data
+9. Raw binary stream: images, videos, archives
+
+```text title="The Hierarchical Tree"
+HTTP‑based Interfaces
+├─ Legacy Form‑based Interfaces
+├─ RPC over‑HTTP (e.g. JSON‑RPC)
+└─ REST‑API (general term for HTTP‑and‑JSON interfaces)
+      ├─ Naive‑style HTTP interfaces
+         (verb‑containing URLs, all‑POST requests)
+      └─ RESTful API
+         (interfaces complying with REST architectural constraints)
+```
+
+### Requirement: fetch the user whose id = 2
+
+**Casual‑style REST API**
+
+- Endpoint: POST /getUserById
+- HTTP method: always POST
+- Parameters are placed inside request‑body
+```json
+{"userId":2}
+```  
+Feature: the URL contains action verb getUserById. One route corresponds to one behaviour.
+
+**Standard RESTful API**
+
+- Endpoint: GET /users/2
+- HTTP method: GET (for resource query)
+- No request body; parameters are encoded within the resource URL  
+Create user: POST /users  
+Partially update user: PATCH /users/2  
+Delete user: DELETE /users/2
+
+**JSON‑RPC**
+
+- Single unified entry‑point: POST /api/rpc
+- HTTP method: fixed as POST
+- Target function name is written in the method field inside JSON payload
+```json
+{
+    "jsonrpc":"2.0",
+    "id": 1,
+    "method":"user.getUserById",
+    "params":{"userId":2}
+}
+```
+
+---
+
+## RESTful API (Resource‑Oriented Interface‑Design Paradigm)
+
+> The standardized version of REST-API; reckon that world is RESOURCES.
+
+
+---
+
+## JSON-RPC 2.0 (Procedure-Call Interface‑Design Paradigm)
+
+> JSON‑RPC can run on top of HTTP, but it does not belong to the REST‑API family; ONLY cares about how to CALL REMOTE FUNCTIONS.

@@ -54,6 +54,21 @@ describe("sendStreamingChat", () => {
     expect(onDelta).toHaveBeenCalledWith("hello");
   });
 
+  it("forwards the abort signal to fetch", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      streamResponse('event: done\ndata: {"content":"hello"}\n\n')
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await sendStreamingChat("question", vi.fn(), controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/ai-chat/chat/send",
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it("rejects a stream that closes without a done event", async () => {
     vi.stubGlobal(
       "fetch",
