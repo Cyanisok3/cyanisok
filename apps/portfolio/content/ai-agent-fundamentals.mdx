@@ -1,140 +1,252 @@
 ---
 title: "Few More Steps from LLM - The Agentic AI Paradiagm"
 publishedAt: "2025-07-07"
-updatedAt: "2026-07-07"
+updatedAt: "2026-08-24"
 author: "Cyan Liu"
 summary: "LLMs have learned to answer, now they need to act. This blog contains notes I took alongside my learning progress on agentic AI."
 image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=800&h=192&fit=crop"
 ---
 
-# Agent Should Be Able to Manage Tasks Itself Around a Goal
+# Two Paradiagm Ahead: Static Workflow OR Agentic Orchestration?
 
-## Before AgentRunner.run()
+SOTA agent frameworks worthy of reference and research today:
 
-### Client side
+- [x] [Pi](https://github.com/earendil-works/pi): Python, coding agent harness, "minimalist product"
+- [x] [tRPC-Agent-Go](https://github.com/trpc-group/trpc-agent-go): Go, agent SDK
+- [x] [Spring AI Alibaba](https://github.com/alibaba/spring-ai-alibaba): Java, graph runtime, "heavy"
+- [x] [AgentScope](https://github.com/agentscope-ai/agentscope): Python, composite agent, multi-agent, "everything"
+- [x] [LangGraph](https://github.com/langchain-ai/langgraph) or [LangGraph for Java](https://github.com/langgraph4j/langgraph4j): Python/Java, state graph workflow
+- [x] [AG2](https://github.com/ag2ai/ag2): Python, protocol-based agent framework, multi-agent
+- [x] [Pydantic AI](https://github.com/pydantic/pydantic-ai): Python, agent SDK, FastAPI/Pydantic dev
+- [x] [OpenAI Agents SDK](https://github.com/openai/openai-agents-python): Python, agent SDK
 
-`<cli/commands/run.py>`
+**Prerequisite terms:**
+
+- Agent SDK: Provides **building blocks** for agent programming
+- Graph Runtime: Manages complex **state** transitions
+- Harness: Assembles agent loops, tools and interactions into runnable **products**
+- Platform: Further delivers evaluation, observability and **deployment** capabilities
+
+**One‑sentence project positioning:**
+
+- Pi: A **minimal coding agent harness** ready for direct use and extension.
+- tRPC‑Agent‑Go: Full‑stack **agent SDK** and runtime for **Go backend** services.
+- Spring AI Alibaba: Agent, graph and platform suite for **Spring‑based** Java enterprise applications.
+- AgentScope: Python **multi‑agent** platform covering development, collaboration, evaluation and training.
+- LangGraph/langgraph4j: Low‑level **state‑graph** runtime supporting persistence, suspend‑resume and cycles.
+- AG2: **Multi‑agent** framework centered on communication protocols and collaboration networks.
+- Pydantic AI: Python **agent SDK** emphasizing type safety, structured output and backend engineering experience.
+
+---
+
+## Before Entering `AgentRunner.run_and_capture()`
+
+*This section is AI-generated.*
+
+The Agent is not exposed as a generic `agent.run` RPC. It starts only after a training process fails and the Incident workflow creates a fixed Agent profile for that failure.
+
+The overall flow looks like this:
+
+```text
+TUI / VS Code
+    │ TCP + NDJSON
+    ▼
+SocketServer
+    │ JSON-RPC routing
+    ▼
+CoreApp
+    ├── launch.start → JobSupervisor → training process
+    └── process failure → IncidentCoordinator
+                                  │
+                                  ▼
+                            IncidentRuntime
+                                  │
+                                  ▼
+                      AgentRunner.run_and_capture()
+```
+
+### Communication Between the Client and Core
+
+The client uses `SocketClient` to connect to the local `cyan-core` daemon. The transport is TCP. Messages are newline-delimited JSON objects, so each line represents one message.
+
+A client will typically connect, start its event loop, and subscribe to the events it needs:
 
 ```text
 SocketClient.connect()
-  -> Opens a TCP connection to the core process
+  -> asyncio.open_connection(host, port)
 
-client.on_event(on_event)
+client.on_event(handler)
 create_task(client.run_event_loop())
 
-send_command("event.subscribe", topics...)
-send_command("agent.run", {"goal": goal})
+send_command("event.subscribe", {...})
 ```
 
-The client first connects to the core over TCP. It then registers an event handler and starts a background event loop. After that, it subscribes to relevant events and sends the user's goal through `agent.run`.
+Training launch uses `launch.preview` and `launch.start`. The preview command parses the training command and creates a fingerprint. The start command launches the process only if that fingerprint is still valid.
 
-### Core side
+An Incident follow-up uses the explicit `incident.follow_up` command:
+
+```text
+send_command("incident.follow_up", {
+  "incident_id": "...",
+  "content": "Please investigate the evidence related to device memory again."
+})
+```
+
+On the Core side, the request follows this path:
 
 ```text
 SocketServer._handle_line()
   -> json.loads(line)
   -> JsonRpcRequest.model_validate(raw)
-  -> self._handlers[req.method]
-  -> CoreApp._subscribe_handler / _agent_run_handler
-  -> Writes JsonRpcSuccess back to the client
+  -> find the registered handler
+  -> call the corresponding CoreApp method
+  -> return JsonRpcSuccess
 ```
 
-The core receives NDJSON over TCP, parses each line as JSON-RPC, validates the request, and routes it to the **matching handler**.
+Several layers are involved here:
 
+- TCP provides the byte transport.
+- NDJSON frames messages by newline.
+- JSON-RPC 2.0 defines the request, response, and error structure.
+- `EventBus` provides in-process asynchronous event dispatch. It is separate from the network transport.
 
-## The Main Running Flow and Agent Loop
+### Creating an Agent Run After a Training Failure
 
-The main assembly function is `async def run_and_capture()` in `runner.py`.
+`JobSupervisor` owns the training process. When the process exits with a non-zero status, the supervisor passes the failure information and the persisted stdout/stderr logs to `IncidentCoordinator`.
 
-- It first receives a `run_id` from `_agent_run_handler`, or creates one if needed. It then creates **cache space** in corresponding directory (`~/runs/<run_id>/`) for this run:
-  1. `events.jsonl`: the run-level event log.
-  2. `.tasks/task_*.json`: internal task-state files for this run.
+The coordinator then:
 
-  It also initializes `TaskManager` from `core/task/`.
+1. Builds a Failure Capsule from the Attempt logs.
+2. Creates or recovers an Incident.
+3. Writes the current `run.json` before starting the background task.
+4. Generates a `run_id` and starts `IncidentRuntime`.
+5. Verifies the log hashes, scans the logs, and selects bounded evidence.
 
-  The task module gives the agent lightweight planning support during the **Plan-And-Execute (PAO) loop**. The LLM can decide itself when to use `task_*` tools to `create`, `update`, `list`, or `get` tasks. These tools are like adapters around the shared `TaskManager`.
+The complete logs are not placed directly into the model context. The evidence selector chooses limited log ranges and records their sources, byte ranges, and hashes. `build_incident_profile()` uses this selection to construct the Agent profile for the current run.
 
-- Next, `EventBus` is initialized from `core/bus/`, together with any external handlers.
+An Incident follow-up uses the same Runtime. It creates a new `run_id` and keeps a bounded summary of the previous diagnosis, proposal, or smoke result so the next run has limited continuity without loading an old conversation.
 
-  `core/bus` and `core/events` together implement in-process pub-sub. The bus layer defines **command, event, and envelope models**; the event layer provides the actual event bus in `core/events/bus.py` and the writer for `events.jsonl`.
+### How `IncidentRuntime` Builds the Agent
 
-  `core/transport`, by contrast, is responsible for actual network communication: TCP, NDJSON, and JSON-RPC.
-
-- `ExecutionContext` from `core/context.py` is then created for this run. It receives the `goal` from user, current `run_id`, and `max_steps`.
-
-  This is the agent’s working memory across multiple actions, but only limited to a single run temporarily. Its main state is a growing `messages` list, which stores:
-  1. User goal (role: **user**)
-  2. LLM responses (role: **assistant**)
-  3. Tool results (role: **user**)
-
-  It also tracks execution status (`"running" | "success" | "failed"`), allowing `AgentLoop` to determine whether the loop should continue, succeed, or fail.
-
-  Task operations are indirectly added to the context as well: when a `task_create`, `task_update`, or similar tool runs, its `ToolResult.content` is appended to the message history.
-
-  At the moment, `TaskManager` mainly improves visibility and structure through CRUD files under:
-
-  ```text
-  runs/<run_id>/.tasks/task_*.json
-  ```
-
-  It also provides limited dependency tracking between tasks.
-
-- `EventWriter` is initialized and subscribed to the bus. This works like any other handler registered through `bus.subscribe(h)`. Whenever the bus publishes an event, `EventWriter` writes the logs in event model into `events.jsonl`.
-
-- `AnthropicProvider` initializes the LLM provider.
-
-  If `AgentRunner._trace` exists (`_trace: TraceWriter | None`), the provider can be wrapped by `TracingProvider`. This works like a decorator (or wrapper): it keeps the original `chat()`'s behavior by invoking `self._inner.chat()`, while also calling `emit()` to write non-blocking global traces into `daemon.jsonl`.
-
-  These traces mainly cover the Core ↔ LLM interaction.
-
-- `ToolRegistry` is then initialized. It receives the `TaskManager`, so all four task-related tools share the same task-state instance.
-
-- Finally, `AgentLoop` is created with three key dependencies (variables):
-  - [x] `LLMProvider` or `TracingProvider`
-  - [x] `ToolRegistry`
-  - [x] `EventBus`
-
-  The actual execution starts with:
-
-  ```python
-  loop.run(context)
-  ```
-
-  This starts the PAO (ReAct) loop.
-
-  1. In the **plan** phase, the loop calls `llm_provider.chat()` and receives an initial `LlmResponse`.
-  2. In the **observe** phase, it extracts response text and tool-call requests, then appends them to `ExecutionContext`.
-  3. The **act** phase is optional. It runs only when the model requests tool use.
-
-  The current implementation mainly handles two `stop_reason` values:
-
-  - [x] `tool_use`: invoke the requested tools, receive `ToolResult`, and append the results to the context.
-  - [x] `end_turn`: finish the current agent turn.
-
-  Other provider stop reasons are not handled explicitly. In those cases, the run may continue until `max_steps` is reached or another state transition ends it.
-
-After the `while` loop ends, `run_and_capture()` publishes a `RunFinishedEvent` and returns a `RunOutcome`.
-
-### Backup: Event Flow During a Run
+Only after the evidence has been prepared does `IncidentRuntime` create an `AgentRunner`:
 
 ```text
-runner / loop / provider / invocation
-  -> bus.publish(event)
-  -> EventWriter.handle(event)              # writes events.jsonl
-  -> CoreApp._trace_event_handler(event)    # writes daemon trace
-  -> IpcEventBroadcaster.handle(event)      # pushes events to CLI/TUI (client)
+IncidentRuntime.run()
+  -> build_failure_capsule()
+  -> select_evidence()
+  -> build_incident_profile()
+  -> AgentRunner.run_and_capture()
 ```
 
-### Backup: How the CLI Receives Events
+`build_incident_profile()` registers six tools for the run:
 
 ```text
-SocketClient.run_event_loop()
-  -> _dispatch(line)
-  -> kind == "event"
-  -> Calls the handler registered by client.on_event(...)
-  -> StdoutPrinter.handle(event)
+read_file
+list_dir
+search_text
+read_job_log
+submit_diagnosis
+propose_patch
 ```
 
+The first four tools only read the workspace or training logs. `submit_diagnosis` writes a structured diagnosis to the Incident artifacts. `propose_patch` generates a patch from one exact and unique SEARCH/REPLACE operation.
+
+The Agent does not modify the workspace directly and cannot execute shell commands.
+
+The profile also applies several limits:
+
+- A maximum of 12 steps.
+- A 128 KiB input-context limit.
+- A separate limit for the initial log evidence.
+- One fixed system prompt for the current Incident.
+- No old session, global memory, or generic Agent extensions.
+
+## `AgentRunner.run_and_capture()`
+
+`AgentRunner` assembles the execution environment for one run. It does not decide the business state of the Incident.
+
+It first creates the run directory and a local `EventBus`. It then creates:
+
+- `ExecutionContext`, which stores the current instruction, message history, step count, and context size;
+- `ToolRegistry`, which contains the tools allowed by the current profile;
+- the LLM provider, using the configured model provider;
+- `AgentLoop`, which performs the model and tool execution loop.
+
+Each run starts with the current instruction:
+
+```text
+user: the current Incident investigation instruction
+assistant: model response and tool_use blocks
+user: corresponding tool_result blocks
+```
+
+The `user` role for a tool result means that the result is being returned to the model. It does not represent another message typed by the human user.
+
+## The `AgentLoop` Execution
+
+`AgentLoop` repeats the following sequence:
+
+```text
+Check the context size
+    ↓
+Call the LLM provider
+    ↓
+Record the assistant text and tool requests
+    ↓
+If the model requested tools, invoke them
+    ↓
+Add the tool results to the context
+    ↓
+Continue or finish the run
+```
+
+When the model returns `tool_use`, the Agent invokes the registered tools and adds their results as tool-result messages. Tool failures are also returned as structured errors, allowing the model to decide whether it can continue investigating.
+
+When the model returns `end_turn`, the run completes successfully. The run can also finish because it reaches the step limit, exceeds the context budget, encounters an LLM failure, or is cancelled.
+
+At the end, `AgentRunner` publishes a `RunFinishedEvent` and returns a `RunOutcome`. The outcome contains bounded metadata such as the status, failure reason, step count, and context sizes. It does not contain duplicated training logs or unrestricted tool output.
+
+## Returning Events and Persisted Results to the Client
+
+Events generated during a run follow two paths:
+
+```text
+AgentLoop / LLM provider / tool invocation
+    └── local EventBus
+          ├── EventWriter → incidents/.../runs/<run_id>/events.jsonl
+          └── Core EventBus
+                ├── trace handler
+                └── IpcEventBroadcaster
+                      └── TCP client
+```
+
+`events.jsonl` stores the event stream for the current run. On the Core side, `IpcEventBroadcaster` sends events that match the client's subscription.
+
+The wire format for a pushed event is:
+
+```json
+{
+  "kind": "event",
+  "event": {
+    "type": "step.started",
+    "run_id": "run-...",
+    "step": 1
+  }
+}
+```
+
+After receiving an event, the client can call `job.get` to retrieve the latest Job, Incident, diagnosis, and proposal state.
+
+When the Agent run finishes, `IncidentRuntime` updates `run.json`. `IncidentCoordinator` then checks whether a diagnosis and proposal were produced and advances the Incident state machine accordingly.
+
+The responsibilities are therefore separated:
+
+- The client sends commands and displays state.
+- `service` owns TCP, NDJSON, and JSON-RPC communication.
+- `training.incidents` owns the Incident lifecycle.
+- `agent` owns the bounded model-and-tool execution loop.
+
+---
 
 ## Recursive Language Model (RLM) & Agentic Reinforcement Learning (ARL)
 
